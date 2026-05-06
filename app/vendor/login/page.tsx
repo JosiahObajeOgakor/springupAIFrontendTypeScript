@@ -4,9 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Zap } from 'lucide-react';
 import { vendorLogin, ApiError } from '@/lib/api';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { setCredentials } from '@/lib/store/authSlice';
+import { Logo } from '@/components/logo';
 
 export default function VendorLogin() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +28,11 @@ export default function VendorLogin() {
 
     try {
       const res = await vendorLogin(phone.trim());
-      localStorage.setItem('vendor', JSON.stringify(res.user));
+      dispatch(setCredentials({
+        token: localStorage.getItem('token')!,
+        vendorId: res.vendor_id,
+        vendor: res.user,
+      }));
       router.push('/vendor/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
@@ -44,9 +52,7 @@ export default function VendorLogin() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="flex items-center gap-2">
-            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
-          </a>
+          <Logo />
           <a href="/vendor/signup" className="text-sm font-medium text-primary hover:underline">Sign Up</a>
         </div>
       </header>

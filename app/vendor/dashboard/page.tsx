@@ -3,12 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap, AlertTriangle } from 'lucide-react';
-import { getVendorServices, checkPlan, getKycStatus, logout } from '@/lib/api';
+import { getVendorServices, checkPlan, getKycStatus } from '@/lib/api';
 import type { VendorService, PlanCheckResponse, KycStatusResponse } from '@/lib/api';
+import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
+import { clearAuth } from '@/lib/store/authSlice';
+import { ProtectedRoute } from '@/components/protected-route';
+import { Logo } from '@/components/logo';
 
 export default function VendorDashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
+  );
+}
+
+function DashboardContent() {
   const router = useRouter();
-  const [vendor, setVendor] = useState<any>(null);
+  const dispatch = useAppDispatch();
+  const { vendor: reduxVendor, vendorId } = useAppSelector((state) => state.auth);
+  const [vendor, setVendor] = useState<any>(reduxVendor);
   const [services, setServices] = useState<VendorService[]>([]);
   const [plan, setPlan] = useState<PlanCheckResponse | null>(null);
   const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
@@ -16,30 +30,20 @@ export default function VendorDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const vendorId = localStorage.getItem('vendor_id');
-    const vendorData = localStorage.getItem('vendor');
-
-    if (!token || !vendorId) {
-      router.push('/vendor/login');
-      return;
-    }
-
-    if (vendorData) {
-      setVendor(JSON.parse(vendorData));
-    }
+    if (!vendorId) return;
 
     async function fetchData() {
       try {
         const [svc, planData, kycData] = await Promise.all([
           getVendorServices(vendorId!),
           checkPlan(vendorId!).catch(() => null),
-          getKycStatus().catch(() => null),
+          getKycStatus(vendorId!).catch(() => null),
         ]);
-        setServices(svc);
+        setServices(svc || []);
         setPlan(planData);
         setKyc(kycData);
       } catch {
+        dispatch(clearAuth());
         router.push('/vendor/login');
       } finally {
         setLoading(false);
@@ -47,10 +51,10 @@ export default function VendorDashboard() {
     }
 
     fetchData();
-  }, [router]);
+  }, [vendorId, dispatch, router]);
 
   const handleLogout = () => {
-    logout();
+    dispatch(clearAuth());
     router.push('/vendor/login');
   };
 
@@ -75,9 +79,7 @@ export default function VendorDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="flex items-center gap-2">
-            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
-          </a>
+          <Logo />
           <div className="flex items-center gap-3">
             <p className="text-sm font-medium hidden sm:block">{vendor?.name || vendor?.fullName}</p>
             <button
@@ -120,7 +122,7 @@ export default function VendorDashboard() {
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Services Listed', value: `${services.length}`, icon: DollarSign, gradient: true },
+            { label: 'Services Listed', value: `${services?.length ?? 0}`, icon: DollarSign, gradient: true },
             { label: 'Plan Status', value: plan?.active ? plan.plan : 'No Plan', icon: Clock, gradient: false },
             { label: 'KYC', value: kyc?.status || vendor?.kyc_status || 'Pending', icon: CheckCircle, gradient: false },
           ].map((card) => {

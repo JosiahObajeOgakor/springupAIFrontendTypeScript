@@ -20,6 +20,6 @@ export async function submitKyc(payload: KycSubmitPayload) {
   });
 }
 
-export async function getKycStatus() {
-  return api<KycStatusResponse>("/api/v1/vendor/kyc/status");
+export async function getKycStatus(vendorId: string) {
+  return api<KycStatusResponse>(`/api/v1/vendor/kyc/status?vendorId=${encodeURIComponent(vendorId)}`);
 }

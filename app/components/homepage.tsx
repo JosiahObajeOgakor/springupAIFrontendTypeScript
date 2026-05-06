@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { ArrowRight, CheckCircle, Shield, MessageCircle, Zap, Clock, CreditCard, Wrench, Lightbulb, Wind, Phone } from 'lucide-react';
+import { Logo } from '@/components/logo';
 
 function Section({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null);
@@ -48,15 +49,13 @@ export default function Homepage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="flex items-center gap-2">
-            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
-          </a>
+          <Logo />
           <nav className="hidden sm:flex items-center gap-6">
             <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition">How it works</a>
             <a href="#services" className="text-sm text-muted-foreground hover:text-foreground transition">Services</a>
             <a href="/vendor/login" className="text-sm text-muted-foreground hover:text-foreground transition">For Vendors</a>
           </nav>
-          <a href="https://wa.me/message" className="relative px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-transform">
+          <a href="https://wa.me/2347039986047" className="relative px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-transform">
             <span className="relative z-10 flex items-center gap-1.5">
               <MessageCircle size={14} /> Chat Now
             </span>
@@ -108,7 +107,7 @@ export default function Homepage() {
             transition={{ duration: 0.5, delay: 0.45 }}
             className="flex flex-col sm:flex-row gap-3 justify-center mb-16"
           >
-            <a href="https://wa.me/message" className="group relative px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-105 active:scale-95 transition-transform inline-flex items-center justify-center gap-2 shadow-elevated">
+            <a href="https://wa.me/2347039986047" className="group relative px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-105 active:scale-95 transition-transform inline-flex items-center justify-center gap-2 shadow-elevated">
               <MessageCircle size={18} />
               Start on WhatsApp
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -348,7 +347,7 @@ export default function Homepage() {
             <p className="text-white/80 text-lg mb-8 max-w-lg mx-auto">
               Join thousands of Nigerians who stopped stressing about everyday tasks.
             </p>
-            <a href="https://wa.me/message" className="group inline-flex px-8 py-4 bg-white text-primary rounded-full font-bold text-lg hover:scale-105 active:scale-95 transition-transform items-center gap-2 shadow-float">
+            <a href="https://wa.me/2347039986047" className="group inline-flex px-8 py-4 bg-white text-primary rounded-full font-bold text-lg hover:scale-105 active:scale-95 transition-transform items-center gap-2 shadow-float">
               <MessageCircle size={20} />
               Start on WhatsApp
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -361,12 +360,10 @@ export default function Homepage() {
       <footer className="border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
-              <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
-            </div>
+            <Logo />
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="/vendor/signup" className="hover:text-foreground transition">For Vendors</a>
-              <a href="https://wa.me/message" className="hover:text-foreground transition">Contact</a>
+              <a href="https://wa.me/2347039986047" className="hover:text-foreground transition">Contact</a>
             </div>
             <p className="text-xs text-muted-foreground">&copy; 2026 SpringUpAI. All rights reserved.</p>
           </div>
