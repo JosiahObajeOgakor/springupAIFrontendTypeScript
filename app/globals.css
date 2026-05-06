@@ -154,6 +154,15 @@
   border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Shimmer animation for CTAs */
 @keyframes shimmer {
   0% { background-position: -200% 0; }

@@ -7,25 +7,16 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
-function loadInitialState(): AuthState {
-  if (typeof window === 'undefined') {
-    return { token: null, vendorId: null, vendor: null, isAuthenticated: false };
-  }
-  const token = localStorage.getItem('token');
-  const vendorId = localStorage.getItem('vendor_id');
-  const vendorRaw = localStorage.getItem('vendor');
-  const vendor = vendorRaw ? JSON.parse(vendorRaw) : null;
-  return {
-    token,
-    vendorId,
-    vendor,
-    isAuthenticated: !!token && !!vendorId,
-  };
-}
+const initialState: AuthState = {
+  token: null,
+  vendorId: null,
+  vendor: null,
+  isAuthenticated: false,
+};
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: loadInitialState(),
+  initialState,
   reducers: {
     setCredentials(
       state,
