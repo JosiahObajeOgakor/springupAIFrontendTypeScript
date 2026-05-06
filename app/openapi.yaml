@@ -1,0 +1,722 @@
+openapi: 3.0.3
+info:
+  title: AnythingAI Gateway API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/v1/user/register:
+    post:
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+                name: { type: string }
+                language: { type: string }
+                location: { type: string }
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      phone: { type: string }
+                      name: { type: string }
+                      language: { type: string }
+                      location: { type: string }
+  /api/v1/vendor/register:
+    post:
+      summary: Register vendor (phone-based)
+      description: |
+        Register a vendor using phone, name, category, and location.
+        If `user_id` is not provided, the user will be auto-created by phone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - name
+                - category
+                - location
+              properties:
+                phone:
+                  type: string
+                  description: Vendor's phone number (required, must be unique)
+                name:
+                  type: string
+                  description: Vendor's name
+                category:
+                  type: string
+                  description: Vendor's category
+                location:
+                  type: string
+                  description: Vendor's location
+                user_id:
+                  type: string
+                  description: (Optional) Existing user ID. If omitted, user will be created by phone.
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Vendor JWT token
+                  vendor:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      user_id: { type: string }
+                      name: { type: string }
+                      category: { type: string }
+                      location: { type: string }
+                      verified: { type: boolean }
+                      kyc_status: { type: string }
+                  user_id:
+                    type: string
+                    description: User ID associated with vendor
+                  vendor_unique:
+                    type: string
+                    description: Unique identifier for vendor (usually phone)
+        '409':
+          description: vendor already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+  /api/v1/vendor/login:
+    post:
+      summary: Vendor login by phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+              properties:
+                phone: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  vendor_id: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      phone: { type: string }
+  /api/v1/vendor/services:
+    get:
+      summary: List vendor services
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: vendorId
+          schema: { type: string }
+          required: true
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    vendor_id: { type: string }
+                    title: { type: string }
+                    description: { type: string }
+                    price: { type: integer }
+                    available: { type: boolean }
+  /api/v1/vendor/services/create:
+    post:
+      summary: Create vendor service
+      description: Requires verified KYC and an active paid vendor tier.
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vendor_id: { type: string }
+                title: { type: string }
+                description: { type: string }
+                price: { type: integer }
+                available: { type: boolean }
+      responses:
+        '201':
+          description: created
+        '500':
+          description: vendor is not KYC verified or has no active paid tier
+  /api/v1/vendor/tier/apply:
+    post:
+      summary: Apply for a paid vendor tier
+      description: Initializes a Paystack transaction for the vendor tier application. A successful Paystack webhook activates the tier.
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vendor_id
+                - tier_level
+              properties:
+                vendor_id: { type: string }
+                tier_level:
+                  type: string
+                  enum: [tier_1, tier_2, tier_3]
+                email: { type: string, format: email }
+                callback_url: { type: string, format: uri }
+      responses:
+        '201':
+          description: payment initialized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payment_id: { type: string }
+                  owner_id: { type: string }
+                  purpose: { type: string }
+                  amount: { type: integer, description: Amount in kobo }
+                  currency: { type: string }
+                  provider: { type: string }
+                  client_reference: { type: string }
+                  provider_reference: { type: string }
+                  authorization_url: { type: string, format: uri }
+                  access_code: { type: string }
+                  status: { type: string, example: pending }
+                  paystack_public_key: { type: string }
+                  tier_level: { type: string }
+        '400':
+          description: invalid request or vendor not yet KYC verified
+  /api/v1/vendor/kyc/activate:
+    post:
+      deprecated: true
+      summary: Legacy vendor KYC initiation route
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id: { type: string }
+                vendor_id: { type: string }
+                location: { type: string }
+      responses:
+        '200':
+          description: vendor must complete submit-and-pay KYC flow
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: kyc_submission_required }
+                  vendor_id: { type: string }
+                  deprecated: { type: boolean }
+                  next_step: { type: string, example: /api/v1/vendor/kyc/submit }
+                  description: { type: string }
+  /api/v1/vendor/plan/check:
+    get:
+      summary: Check vendor tier status
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: vendorId
+          schema: { type: string }
+          required: true
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active: { type: boolean }
+                  plan: { type: string }
+                  tier_status: { type: string }
+                  expires_at: { type: string, format: date-time }
+  /api/v1/bills/remita/catalog:
+    get:
+      summary: Get Remita VAS service list and commissions
+      description: Signed-in users and vendors can browse the supported Remita VAS, vending, and commission catalog.
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider: { type: string, example: remita }
+                  source: { type: string, example: embedded }
+                  remote_configured: { type: boolean }
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category: { type: string }
+                        biller_name: { type: string }
+                        commission: { type: string }
+                        commission_type: { type: string }
+                        commission_value: { type: number }
+                        commission_unit: { type: string }
+                        provider: { type: string }
+                        supports_vending: { type: boolean }
+                        requires_amount: { type: boolean }
+                        requires_customer_reference: { type: boolean }
+  /api/v1/bills/remita/categories:
+    get:
+      summary: Get Remita vending categories
+      description: Proxies the Remita Connect categories endpoint. In local development, configure REMITA_BASE_URL to the dev Connect base URL and this route will call /api/v1/vending/categories with page and size query params.
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Approved or completed successfully }
+                  status: { type: string, example: '00' }
+                  data:
+                    type: object
+                    properties:
+                      totalPage: { type: integer, example: 1 }
+                      totalContent: { type: integer, example: 6 }
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer, example: 1 }
+                            name: { type: string, example: electricity }
+                            description: { type: string, example: electricity }
+                            code: { type: string, example: electricity }
+        '502':
+          description: Remita categories fetch failed or service unavailable
+  /api/v1/bills/remita/vend:
+    post:
+      summary: Vend a Remita service for a signed-in user or vendor
+      description: Debits the caller wallet and forwards the request to the configured Remita vending endpoint.
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - biller_name
+                - customer_reference
+                - amount
+              properties:
+                owner_id: { type: string, description: Optional. Defaults to authenticated user id. }
+                category: { type: string }
+                biller_name: { type: string }
+                service_type_id: { type: string }
+                product_code: { type: string }
+                customer_reference: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+                amount: { type: integer, description: Amount in kobo/minor unit as used by the wallet service. }
+                currency: { type: string, example: NGN }
+                narration: { type: string }
+      responses:
+        '200':
+          description: vend success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  provider: { type: string }
+                  reference: { type: string }
+                  message: { type: string }
+                  payload: { type: object }
+        '502':
+          description: Remita vend failed or service unavailable
+  /api/v1/kyc/webhook/paystack:
+    post:
+      summary: Receive Paystack webhook for vendor KYC payments
+      description: Public webhook endpoint proxied to the KYC service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: webhook accepted
+        '401':
+          description: invalid Paystack signature
+  /api/v1/payments/webhook/paystack:
+    post:
+      summary: Receive Paystack webhook for vendor tier payments
+      description: Public webhook endpoint proxied to the payments service.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: webhook accepted
+        '401':
+          description: invalid Paystack signature
+  /api/v1/admin/vendor/kyc-override:
+    post:
+      summary: Admin override KYC status
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vendor_id: { type: string }
+                kyc_status: { type: string }
+      responses:
+        '200': { description: updated }
+  /api/v1/admin/users:
+    get:
+      summary: List users (admin)
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        phone: { type: string }
+                        name: { type: string }
+                        language: { type: string }
+                        location: { type: string }
+                  total: { type: integer }
+                  page: { type: integer }
+                  page_size: { type: integer }
+  /api/v1/admin/vendors:
+    get:
+      summary: List vendors (admin)
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: pageSize
+          schema: { type: integer }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        user_id: { type: string }
+                        name: { type: string }
+                        category: { type: string }
+                        location: { type: string }
+                        verified: { type: boolean }
+                        kyc_status: { type: string }
+                  total: { type: integer }
+                  page: { type: integer }
+                  page_size: { type: integer }
+  /api/v1/marketplace/search:
+    post:
+      summary: Search marketplace
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category: { type: string }
+                location: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vendors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        vendor_id: { type: string }
+                        name: { type: string }
+                        verified: { type: boolean }
+                        location: { type: string }
+  /api/v1/wallet/fund:
+    post:
+      summary: Fund wallet
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner_id: { type: string }
+                amount: { type: integer }
+                provider: { type: string }
+                ref: { type: string }
+      responses:
+        '200': { description: ok }
+  /api/v1/wallet/escrow:
+    post:
+      summary: Hold payment in escrow
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string }
+                from_id: { type: string }
+                to_id: { type: string }
+                amount: { type: integer }
+      responses:
+        '200': { description: held }
+  /api/v1/wallet/release:
+    post:
+      summary: Release escrow
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string }
+      responses:
+        '200': { description: released }
+  /api/v1/wallet/refund:
+    post:
+      summary: Refund escrow
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string }
+      responses:
+        '200': { description: refunded }
+  /api/v1/wallet/withdraw:
+    post:
+      summary: Withdraw funds
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner_id: { type: string }
+                amount: { type: integer }
+      responses:
+        '200': { description: ok }
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: new token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+  /api/v1/auth/revoke:
+    post:
+      summary: Revoke access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+      responses:
+        '204': { description: revoked }
+  /api/v1/auth/login:
+    post:
+      summary: Login existing user by phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  refresh_token: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      phone: { type: string }
+                      name: { type: string }
+                      language: { type: string }
+                      location: { type: string }
+        '404': { description: user not found }
+  /api/v1/webhook/whatsapp:
+    get:
+      summary: WhatsApp webhook verification (Meta)
+      parameters:
+        - in: query
+          name: hub.mode
+          schema: { type: string }
+        - in: query
+          name: hub.challenge
+          schema: { type: string }
+        - in: query
+          name: hub.verify_token
+          schema: { type: string }
+      responses:
+        '200': { description: challenge echoed }
+        '403': { description: verification failed }
+    post:
+      summary: WhatsApp webhook (auto-register)
+      responses:
+        '200': { description: ok }
+  /api/v1/marketplace/job/accept:
+    post:
+      summary: Accept job
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string }
+                vendor_id: { type: string }
+      responses:
+        '200': { description: accepted }
+  /api/v1/marketplace/job/complete:
+    post:
+      summary: Complete job
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id: { type: string }
+      responses:
+        '200': { description: completed }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

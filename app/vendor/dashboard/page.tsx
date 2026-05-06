@@ -2,30 +2,55 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap } from 'lucide-react';
+import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap, AlertTriangle } from 'lucide-react';
+import { getVendorServices, checkPlan, getKycStatus, logout } from '@/lib/api';
+import type { VendorService, PlanCheckResponse, KycStatusResponse } from '@/lib/api';
 
 export default function VendorDashboard() {
   const router = useRouter();
   const [vendor, setVendor] = useState<any>(null);
+  const [services, setServices] = useState<VendorService[]>([]);
+  const [plan, setPlan] = useState<PlanCheckResponse | null>(null);
+  const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    const token = localStorage.getItem('vendorToken');
+    const token = localStorage.getItem('token');
+    const vendorId = localStorage.getItem('vendor_id');
     const vendorData = localStorage.getItem('vendor');
 
-    if (!token || !vendorData) {
+    if (!token || !vendorId) {
       router.push('/vendor/login');
       return;
     }
 
-    setVendor(JSON.parse(vendorData));
-    setLoading(false);
+    if (vendorData) {
+      setVendor(JSON.parse(vendorData));
+    }
+
+    async function fetchData() {
+      try {
+        const [svc, planData, kycData] = await Promise.all([
+          getVendorServices(vendorId!),
+          checkPlan(vendorId!).catch(() => null),
+          getKycStatus().catch(() => null),
+        ]);
+        setServices(svc);
+        setPlan(planData);
+        setKyc(kycData);
+      } catch {
+        router.push('/vendor/login');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('vendorToken');
-    localStorage.removeItem('vendor');
+    logout();
     router.push('/vendor/login');
   };
 
@@ -39,21 +64,10 @@ export default function VendorDashboard() {
     );
   }
 
-  const mockEarnings = {
-    totalEarnings: 450000,
-    pendingPayments: 75000,
-    completedPayouts: 375000,
-  };
-
   const mockJobs = [
     { id: 1, title: 'Fix leaking pipe', location: 'Ikeja, Lagos', price: 15000, status: 'pending' },
     { id: 2, title: 'Electrical fault repair', location: 'Victoria Island', price: 12000, status: 'accepted' },
     { id: 3, title: 'AC servicing', location: 'Lekki', price: 25000, status: 'completed' },
-  ];
-
-  const mockServices = [
-    { id: 1, name: 'Plumbing Repair', priceRange: '₦10,000 - ₦50,000', active: true },
-    { id: 2, name: 'Pipe Installation', priceRange: '₦15,000 - ₦80,000', active: true },
   ];
 
   return (
@@ -61,9 +75,11 @@ export default function VendorDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="text-xl font-bold text-gradient">SpringUpAI</a>
+          <a href="/" className="flex items-center gap-2">
+            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
+          </a>
           <div className="flex items-center gap-3">
-            <p className="text-sm font-medium hidden sm:block">{vendor?.fullName}</p>
+            <p className="text-sm font-medium hidden sm:block">{vendor?.name || vendor?.fullName}</p>
             <button
               onClick={handleLogout}
               className="px-4 py-2 border border-border rounded-full text-sm hover:bg-secondary transition inline-flex items-center gap-2"
@@ -75,18 +91,38 @@ export default function VendorDashboard() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* KYC Banner */}
+        {kyc && kyc.status !== 'approved' && (
+          <div className="mb-6 rounded-2xl p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-yellow-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                {kyc.status === 'rejected' ? 'KYC Rejected' : 'KYC Verification Required'}
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-0.5">
+                {kyc.status === 'rejected'
+                  ? kyc.reason || 'Your KYC submission was rejected. Please re-submit.'
+                  : 'Complete your KYC verification to create services and receive payments.'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Welcome */}
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-1">Welcome, {vendor?.fullName?.split(' ')[0]}</h1>
-          <p className="text-muted-foreground text-sm">Service: {vendor?.serviceCategory}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1">Welcome, {(vendor?.name || vendor?.fullName)?.split(' ')[0]}</h1>
+          <p className="text-muted-foreground text-sm">
+            {vendor?.category || vendor?.serviceCategory}
+            {plan?.active && <span className="ml-2 text-primary font-medium">• {plan.plan}</span>}
+          </p>
         </div>
 
-        {/* Earnings Overview */}
+        {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Total Earnings', value: `₦${(mockEarnings.totalEarnings).toLocaleString()}`, icon: DollarSign, gradient: true },
-            { label: 'Pending', value: `₦${(mockEarnings.pendingPayments).toLocaleString()}`, icon: Clock, gradient: false },
-            { label: 'Paid Out', value: `₦${(mockEarnings.completedPayouts).toLocaleString()}`, icon: CheckCircle, gradient: false },
+            { label: 'Services Listed', value: `${services.length}`, icon: DollarSign, gradient: true },
+            { label: 'Plan Status', value: plan?.active ? plan.plan : 'No Plan', icon: Clock, gradient: false },
+            { label: 'KYC', value: kyc?.status || vendor?.kyc_status || 'Pending', icon: CheckCircle, gradient: false },
           ].map((card) => {
             const Icon = card.icon;
             return (
@@ -177,15 +213,15 @@ export default function VendorDashboard() {
         {activeTab === 'wallet' && (
           <div className="max-w-md">
             <div className="gradient-primary rounded-2xl p-6 text-white shadow-elevated mb-4">
-              <p className="text-xs text-white/70 mb-1">Available Balance</p>
-              <p className="text-3xl font-bold mb-5">₦{(mockEarnings.pendingPayments).toLocaleString()}</p>
+              <p className="text-xs text-white/70 mb-1">Wallet</p>
+              <p className="text-3xl font-bold mb-5">Coming Soon</p>
               <button className="w-full px-4 py-3 bg-white text-primary rounded-full font-semibold hover:scale-[1.02] active:scale-[0.98] transition-transform">
                 Withdraw to Bank
               </button>
             </div>
             <div className="bg-card rounded-2xl p-6 border border-border shadow-sm">
-              <p className="text-xs text-muted-foreground mb-1">Total Paid Out</p>
-              <p className="text-2xl font-bold">₦{(mockEarnings.completedPayouts).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mb-1">Plan Status</p>
+              <p className="text-2xl font-bold">{plan?.active ? `${plan.plan} (Active)` : 'No active plan'}</p>
             </div>
           </div>
         )}
@@ -193,14 +229,17 @@ export default function VendorDashboard() {
         {/* Services Tab */}
         {activeTab === 'services' && (
           <div className="space-y-4">
-            {mockServices.map((service) => (
+            {services.length === 0 && (
+              <p className="text-sm text-muted-foreground">No services yet. Add your first service below.</p>
+            )}
+            {services.map((service) => (
               <div key={service.id} className="bg-card rounded-2xl p-6 border border-border shadow-sm flex items-center justify-between hover:shadow-elevated transition-shadow">
                 <div>
-                  <h4 className="font-semibold">{service.name}</h4>
-                  <p className="text-sm text-muted-foreground">{service.priceRange}</p>
+                  <h4 className="font-semibold">{service.title}</h4>
+                  <p className="text-sm text-muted-foreground">₦{service.price.toLocaleString()}</p>
                 </div>
-                <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${service.active ? 'bg-primary' : 'bg-border'}`}>
-                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${service.active ? 'translate-x-4' : 'translate-x-0'}`} />
+                <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${service.available ? 'bg-primary' : 'bg-border'}`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${service.available ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
               </div>
             ))}

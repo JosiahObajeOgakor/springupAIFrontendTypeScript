@@ -48,7 +48,9 @@ export default function Homepage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="text-xl font-bold text-gradient">SpringUpAI</a>
+          <a href="/" className="flex items-center gap-2">
+            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
+          </a>
           <nav className="hidden sm:flex items-center gap-6">
             <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition">How it works</a>
             <a href="#services" className="text-sm text-muted-foreground hover:text-foreground transition">Services</a>
@@ -359,7 +361,9 @@ export default function Homepage() {
       <footer className="border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div className="text-xl font-bold text-gradient">SpringUpAI</div>
+            <div className="flex items-center gap-2">
+              <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
+            </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="/vendor/signup" className="hover:text-foreground transition">For Vendors</a>
               <a href="https://wa.me/message" className="hover:text-foreground transition">Contact</a>

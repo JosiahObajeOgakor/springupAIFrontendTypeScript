@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, CheckCircle, Zap } from 'lucide-react';
+import { registerVendorByPhone, ApiError } from '@/lib/api';
 
 export default function VendorSignup() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
-    password: '',
     location: '',
     serviceCategory: '',
   });
@@ -25,22 +25,26 @@ export default function VendorSignup() {
     setError('');
     setLoading(true);
 
-    if (!formData.fullName || !formData.phone || !formData.password || !formData.location || !formData.serviceCategory) {
+    if (!formData.fullName || !formData.phone || !formData.location || !formData.serviceCategory) {
       setError('All fields are required');
       setLoading(false);
       return;
     }
 
     try {
-      const vendor = {
-        id: Date.now().toString(),
-        ...formData,
-      };
-      localStorage.setItem('vendor', JSON.stringify(vendor));
-      localStorage.setItem('vendorToken', 'token_' + Date.now());
+      await registerVendorByPhone({
+        phone: formData.phone.trim(),
+        name: formData.fullName.trim(),
+        category: formData.serviceCategory,
+        location: formData.location.trim(),
+      });
       router.push('/vendor/dashboard');
-    } catch {
-      setError('Signup failed. Please try again.');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setError('A vendor with this phone already exists. Please sign in.');
+      } else {
+        setError('Signup failed. Please try again.');
+      }
       setLoading(false);
     }
   };
@@ -53,7 +57,9 @@ export default function VendorSignup() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="text-xl font-bold text-gradient">SpringUpAI</a>
+          <a href="/" className="flex items-center gap-2">
+            <img src="https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png" alt="SpringUpAI" className="h-16 w-auto" />
+          </a>
           <a href="/vendor/login" className="text-sm font-medium text-primary hover:underline">Sign In</a>
         </div>
       </header>
@@ -63,9 +69,6 @@ export default function VendorSignup() {
           {/* Form */}
           <div>
             <div className="mb-8">
-              <div className="w-14 h-14 mb-5 rounded-2xl gradient-primary flex items-center justify-center shadow-elevated">
-                <Zap size={24} className="text-white" />
-              </div>
               <h1 className="text-3xl font-bold mb-2">Join SpringUpAI</h1>
               <p className="text-muted-foreground">Start receiving steady jobs in your area</p>
             </div>
@@ -93,19 +96,6 @@ export default function VendorSignup() {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="+234 701 234 5678"
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
                   className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all"
                 />
               </div>
