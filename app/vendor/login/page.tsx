@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Zap } from 'lucide-react';
 
 export default function VendorLogin() {
   const router = useRouter();
@@ -28,7 +28,6 @@ export default function VendorLogin() {
       return;
     }
 
-    // Mock login - verify against localStorage
     try {
       const vendor = localStorage.getItem('vendor');
       if (vendor) {
@@ -44,14 +43,13 @@ export default function VendorLogin() {
         setError('No account found. Please sign up first.');
         setLoading(false);
       }
-    } catch (err) {
+    } catch {
       setError('Login failed. Please try again.');
       setLoading(false);
     }
   };
 
   const handleDemoLogin = () => {
-    // Create demo account and login
     const demoVendor = {
       id: '1234567890',
       fullName: 'Chukwu Adeyemi',
@@ -66,25 +64,31 @@ export default function VendorLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground relative">
+      {/* Background pattern */}
+      <div className="absolute inset-0 gradient-hero pointer-events-none" />
+
       {/* Header */}
-      <header className="stickorder-b border-border bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
-          <a href="/" className="text-xl font-bold text-primary">SpringUpAI</a>
-          <a href="/vendor/signup" className="text-sm font-medium text-primary hover:opacity-90">Sign Up</a>
+          <a href="/" className="text-xl font-bold text-gradient">SpringUpAI</a>
+          <a href="/vendor/signup" className="text-sm font-medium text-primary hover:underline">Sign Up</a>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
         <div className="max-w-md mx-auto">
           <div className="mb-8 text-center">
+            <div className="w-14 h-14 mx-auto mb-5 rounded-2xl gradient-primary flex items-center justify-center shadow-elevated">
+              <Zap size={24} className="text-white" />
+            </div>
             <h1 className="text-3xl font-bold mb-2">Welcome back</h1>
             <p className="text-muted-foreground">Access your jobs and earnings securely</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4 bg-secondary rounded-xl p-8 border border-border">
+          <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-2xl p-8 border border-border shadow-float">
             <div>
-              <label className="block text-sm font-medium mb-1">Phone Number or Email</label>
+              <label htmlFor="phone" className="block text-sm font-medium mb-1.5">Phone Number or Email</label>
               <input
                 id="phone"
                 type="text"
@@ -92,12 +96,12 @@ export default function VendorLogin() {
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+234 701 234 5678"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium mb-1.5">Password</label>
               <input
                 id="password"
                 type="password"
@@ -105,7 +109,7 @@ export default function VendorLogin() {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/30 text-base transition-all duration-200"
+                className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all"
               />
             </div>
 
@@ -114,7 +118,7 @@ export default function VendorLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-glow w-full px-6 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold transition disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-11"
+              className="w-full px-6 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 inline-flex items-center justify-center gap-2 shadow-elevated"
             >
               {loading ? 'Signing in...' : 'Sign In'} <ArrowRight size={18} />
             </button>
@@ -122,7 +126,7 @@ export default function VendorLogin() {
             <button
               type="button"
               onClick={handleDemoLogin}
-              className="w-full px-6 py-3.5 border border-border text-foreground rounded-full font-semibold hover:bg-secondary/80 transition-all duration-200 min-h-11"
+              className="w-full px-6 py-3.5 border border-border text-foreground rounded-full font-semibold hover:bg-secondary transition inline-flex items-center justify-center gap-2"
             >
               Try Demo
             </button>

@@ -123,3 +123,117 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Premium gradient & glass utilities */
+.gradient-primary {
+  background: linear-gradient(135deg, oklch(0.35 0.15 142), oklch(0.45 0.18 155));
+}
+
+.gradient-hero {
+  background: radial-gradient(ellipse 80% 60% at 50% -20%, oklch(0.35 0.15 142 / 0.08), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 50%, oklch(0.45 0.18 155 / 0.05), transparent);
+}
+
+.glass {
+  background: oklch(1 0 0 / 0.7);
+  backdrop-filter: blur(12px) saturate(1.5);
+  border: 1px solid oklch(0.94 0 0 / 0.6);
+}
+
+.dark .glass {
+  background: oklch(0.145 0 0 / 0.7);
+  border-color: oklch(0.269 0 0 / 0.6);
+}
+
+/* Chat bubble shapes */
+.bubble-user {
+  border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+}
+
+.bubble-agent {
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+}
+
+/* Shimmer animation for CTAs */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+
+/* Floating orb animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.02); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+/* Pulse ring for play button */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: oklch(0.35 0.15 142 / 0.3);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Typewriter cursor */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: '|';
+  animation: blink 1s steps(1) infinite;
+  color: oklch(0.35 0.15 142);
+  font-weight: 300;
+}
+
+/* Premium shadow depth levels */
+.shadow-elevated {
+  box-shadow: 0 4px 6px -1px oklch(0 0 0 / 0.05), 
+              0 10px 15px -3px oklch(0 0 0 / 0.05),
+              0 20px 25px -5px oklch(0 0 0 / 0.03);
+}
+
+.shadow-float {
+  box-shadow: 0 8px 30px oklch(0 0 0 / 0.08),
+              0 2px 8px oklch(0 0 0 / 0.04);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, oklch(0.35 0.15 142), oklch(0.5 0.2 155));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* WhatsApp green accent */
+.whatsapp-green {
+  color: oklch(0.55 0.17 145);
+}
