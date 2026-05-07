@@ -48,8 +48,6 @@ export default function VendorLogin() {
     <div className="min-h-screen bg-background text-foreground relative">
       {/* Background pattern */}
       <div className="absolute inset-0 gradient-hero pointer-events-none" />
-
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <Logo />
