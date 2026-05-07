@@ -72,6 +72,7 @@ export interface VendorRegisterByPhonePayload {
   location: string;
   lat?: number;
   lng?: number;
+  referral_code?: string;
 }
 
 export interface VendorRegisterByPhoneResponse {

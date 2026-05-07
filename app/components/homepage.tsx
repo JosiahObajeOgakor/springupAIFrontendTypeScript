@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { ArrowRight, CheckCircle, Shield, MessageCircle, Zap, Clock, CreditCard, Wrench, Lightbulb, Wind, Phone } from 'lucide-react';
+import { ArrowRight, CheckCircle, Shield, MessageCircle, Zap, Clock, CreditCard, Wrench, Lightbulb, Wind, Phone, Gift, Users, TrendingUp } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { MusicPlayer } from '@/components/music-player';
 
 function Section({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null);
@@ -44,6 +45,18 @@ function ChatBubble({ children, side, delay = 0 }: { children: React.ReactNode; 
 }
 
 export default function Homepage() {
+  // Live counter — starts at a base and ticks up
+  const [jobsCompleted, setJobsCompleted] = useState(1247);
+  const [activeVendors, setActiveVendors] = useState(312);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setJobsCompleted((c) => c + Math.floor(Math.random() * 3));
+      setActiveVendors((v) => v + (Math.random() > 0.7 ? 1 : 0));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       {/* Navbar */}
@@ -318,6 +331,105 @@ export default function Homepage() {
         </div>
       </section>
 
+      {/* Live Service Counter */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Section>
+            <div className="bg-card border border-border rounded-2xl shadow-elevated p-8 sm:p-12">
+              <p className="text-sm font-medium text-primary text-center mb-6 tracking-wide uppercase">Live right now</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+                <div>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <TrendingUp size={20} className="text-primary" />
+                    <motion.p
+                      key={jobsCompleted}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-3xl sm:text-4xl font-bold"
+                    >
+                      {jobsCompleted.toLocaleString()}
+                    </motion.p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Jobs completed</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <Users size={20} className="text-primary" />
+                    <motion.p
+                      key={activeVendors}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-3xl sm:text-4xl font-bold"
+                    >
+                      {activeVendors}+
+                    </motion.p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Active vendors</p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <Zap size={20} className="text-green-500" />
+                    <p className="text-3xl sm:text-4xl font-bold">30 min</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Avg. response time</p>
+                </div>
+              </div>
+            </div>
+          </Section>
+        </div>
+      </section>
+
+      {/* Referral Program */}
+      <section className="py-20 sm:py-28 bg-secondary/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Section>
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-card border border-border rounded-2xl shadow-float overflow-hidden">
+                <div className="gradient-primary p-8 sm:p-10 text-center text-white">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white/20 flex items-center justify-center">
+                    <Gift size={32} className="text-white" />
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-bold mb-2">Refer &amp; Earn ₦500</h2>
+                  <p className="text-white/80 text-sm sm:text-base max-w-md mx-auto">
+                    Share your unique link. When someone signs up and completes their first service or bill payment, you both earn ₦500 credit.
+                  </p>
+                </div>
+                <div className="p-6 sm:p-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    {[
+                      { step: '1', text: 'Copy your referral link from your dashboard' },
+                      { step: '2', text: 'Share on WhatsApp, TikTok, or Instagram' },
+                      { step: '3', text: 'Earn ₦500 when they complete a task' },
+                    ].map((item) => (
+                      <div key={item.step} className="flex items-center gap-3 sm:flex-col sm:text-center">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-primary">{item.step}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <a
+                      href="/vendor/signup"
+                      className="flex-1 px-6 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-[1.02] active:scale-[0.98] transition-transform inline-flex items-center justify-center gap-2 shadow-elevated"
+                    >
+                      <Users size={18} /> Sign Up as Vendor
+                    </a>
+                    <a
+                      href="/vendor/login"
+                      className="flex-1 px-6 py-3.5 border border-border text-foreground rounded-full font-semibold hover:bg-secondary transition inline-flex items-center justify-center gap-2"
+                    >
+                      Get Your Referral Link →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Section>
+        </div>
+      </section>
+
       {/* Why SpringUpAI Exists */}
       <section className="py-20 sm:py-28 bg-secondary/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -369,6 +481,9 @@ export default function Homepage() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Music Player */}
+      <MusicPlayer />
     </div>
   );
 }

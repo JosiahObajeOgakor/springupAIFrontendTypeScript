@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowRight, CheckCircle, Zap } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowRight, CheckCircle, Zap, Gift } from 'lucide-react';
 import { registerVendorByPhone, ApiError } from '@/lib/api';
 import { useAppDispatch } from '@/lib/store/hooks';
 import { setCredentials } from '@/lib/store/authSlice';
@@ -10,6 +10,8 @@ import { Logo } from '@/components/logo';
 
 export default function VendorSignup() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get('ref') || '';
   const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -41,6 +43,7 @@ export default function VendorSignup() {
         name: formData.fullName.trim(),
         category: formData.serviceCategory,
         location: formData.location.trim(),
+        ...(referralCode ? { referral_code: referralCode } : {}),
       });
       dispatch(setCredentials({
         token: localStorage.getItem('token')!,
@@ -79,6 +82,18 @@ export default function VendorSignup() {
               <h1 className="text-3xl font-bold mb-2">Join SpringUpAI</h1>
               <p className="text-muted-foreground">Start receiving steady jobs in your area</p>
             </div>
+
+            {referralCode && (
+              <div className="mb-6 rounded-2xl p-4 border border-green-300 bg-green-50 dark:bg-green-950/20 dark:border-green-800 flex items-start gap-3">
+                <Gift size={20} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-green-800 dark:text-green-200">You were referred!</p>
+                  <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
+                    Sign up and earn ₦500 bonus when you complete your first bill payment or booking.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-2xl p-8 border border-border shadow-float">
               <div>
