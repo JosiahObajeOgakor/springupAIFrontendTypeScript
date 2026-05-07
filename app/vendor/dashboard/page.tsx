@@ -124,7 +124,7 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/60">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           <Logo className="h-10 sm:h-16 w-auto" />
           <div className="flex items-center gap-2 sm:gap-3">
@@ -139,8 +139,7 @@ function DashboardContent() {
         </div>
       </header>
 
-      <div className="pt-16 sm:pt-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-12">
         {/* KYC Banner */}
         {kyc && kyc.status !== 'approved' && (
           <div className="mb-6 rounded-2xl p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 flex items-start gap-3">
@@ -425,7 +424,6 @@ function DashboardContent() {
           </div>
         )}
         </div>
-      </div>
     </div>
   );
 }

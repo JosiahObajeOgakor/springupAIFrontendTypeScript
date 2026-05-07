@@ -45,7 +45,7 @@ function ChatBubble({ children, side, delay = 0 }: { children: React.ReactNode; 
 
 export default function Homepage() {
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-background text-foreground overflow-x-clip">
       {/* Navbar */}
       <header className="sticky top-0 z-50 glass">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
