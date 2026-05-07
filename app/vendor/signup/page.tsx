@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, CheckCircle, Zap, Gift } from 'lucide-react';
 import { registerVendorByPhone, ApiError } from '@/lib/api';
@@ -9,6 +9,14 @@ import { setCredentials } from '@/lib/store/authSlice';
 import { Logo } from '@/components/logo';
 
 export default function VendorSignup() {
+  return (
+    <Suspense>
+      <VendorSignupContent />
+    </Suspense>
+  );
+}
+
+function VendorSignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref') || '';
