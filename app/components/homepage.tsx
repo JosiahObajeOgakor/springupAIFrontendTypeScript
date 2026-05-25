@@ -44,6 +44,229 @@ function ChatBubble({ children, side, delay = 0 }: { children: React.ReactNode; 
   );
 }
 
+const CONVERSATIONS: { title: string; lang: string; messages: { side: 'user' | 'agent'; text: string }[] }[] = [
+  {
+    title: 'Airtime Purchase',
+    lang: 'Pidgin',
+    messages: [
+      { side: 'user', text: 'Abeg recharge my phone with 2k airtime' },
+      { side: 'agent', text: 'Na MTN 0803****789? ₦2,000 airtime. I go do am?' },
+      { side: 'user', text: 'Yes, sharp sharp' },
+      { side: 'agent', text: 'Done ✓ ₦2,000 airtime don land. Balance updated.' },
+    ],
+  },
+  {
+    title: 'Plumber Request',
+    lang: 'English',
+    messages: [
+      { side: 'user', text: 'I need a plumber in Lekki urgently' },
+      { side: 'agent', text: 'Found a verified plumber — 4.8★ rating. ₦18,000 estimate. Book now?' },
+      { side: 'user', text: 'Yes please' },
+      { side: 'agent', text: 'Booked ✓ He arrives in 25 mins. Payment held in escrow until you confirm.' },
+    ],
+  },
+  {
+    title: 'Hair Stylist',
+    lang: 'Pidgin',
+    messages: [
+      { side: 'user', text: 'I dey find hairstylist wey sabi do knotless braids for Surulere' },
+      { side: 'agent', text: 'I get one — Aunty Bimpe, 4.9★, ₦25,000 for knotless braids. She fit come house.' },
+      { side: 'user', text: 'Shebi e go tey? How many hours?' },
+      { side: 'agent', text: '4-5 hours. She fit start by 10am tomorrow. I go book am?' },
+      { side: 'user', text: 'Book am jare' },
+      { side: 'agent', text: 'Done ✓ Aunty Bimpe go come 10am. Money dey escrow till you happy.' },
+    ],
+  },
+  {
+    title: 'Fresh Fish Market',
+    lang: 'Pidgin',
+    messages: [
+      { side: 'user', text: 'I wan buy fresh catfish, like 5kg. Who get for Ajah side?' },
+      { side: 'agent', text: 'Mama Fish Farm dey Ajah — 5kg catfish na ₦12,500. Fresh today. You want?' },
+      { side: 'user', text: 'E too cost o. Anything around 10k?' },
+      { side: 'agent', text: 'Oga Tunde Fish dey offer 5kg for ₦10,000. Delivery free. Confirm?' },
+      { side: 'user', text: 'Ehen! Na this one. Confirm am' },
+      { side: 'agent', text: 'Confirmed ✓ Delivery before 4pm today. Pay when fish land.' },
+    ],
+  },
+  {
+    title: 'Electrician',
+    lang: 'Hausa',
+    messages: [
+      { side: 'user', text: 'Ina son electrician a Garki, Abuja. Wutar gidana ta lalace' },
+      { side: 'agent', text: 'Mun sami Musa Electricals — verified, 4.7★. ₦15,000 estimate. Za ka yarda?' },
+      { side: 'user', text: 'To, na yarda' },
+      { side: 'agent', text: 'An shirya ✓ Zai iso cikin minti 40. Kudin ka yana cikin escrow.' },
+    ],
+  },
+  {
+    title: 'Data Bundle',
+    lang: 'Yoruba',
+    messages: [
+      { side: 'user', text: 'Mo fẹ́ ra data 10GB fún phone mi' },
+      { side: 'agent', text: 'MTN 10GB — ₦3,000 tabi Airtel 10GB — ₦2,800. Èwo lo fẹ́?' },
+      { side: 'user', text: 'Airtel, ó din owo ju' },
+      { side: 'agent', text: 'Ó ti ṣe ✓ 10GB ti activate lori 0802****456. Ọjọ́ 30 validity.' },
+    ],
+  },
+  {
+    title: 'Generator Repair',
+    lang: 'English',
+    messages: [
+      { side: 'user', text: 'My generator is making a loud noise and shutting off. Need a repair person.' },
+      { side: 'agent', text: 'Found 3 verified generator technicians near you. Top rated: EmmaFix — ₦12,000 diagnostic. Proceed?' },
+      { side: 'user', text: 'Yes, send EmmaFix' },
+      { side: 'agent', text: 'Scheduled ✓ EmmaFix arrives tomorrow 9am. You only pay after repair is confirmed.' },
+    ],
+  },
+  {
+    title: 'Electricity Bill',
+    lang: 'Pidgin',
+    messages: [
+      { side: 'user', text: 'Abeg help me pay light bill. IKEDC, prepaid meter' },
+      { side: 'agent', text: 'I see your meter — ₦8,500 outstanding. You wan pay all?' },
+      { side: 'user', text: 'Pay 5k first' },
+      { side: 'agent', text: 'Paid ✓ Token: 6293-4017-8852-1134. ₦5,000 credited to your meter.' },
+    ],
+  },
+  {
+    title: 'Tailor / Fashion',
+    lang: 'Yoruba',
+    messages: [
+      { side: 'user', text: 'Mo nilo tailor to dara fun agbada. Ọjọ́ Saturday ni party mi' },
+      { side: 'agent', text: 'Tailor Kọ́lá ni Ìkẹjà — 4.9★, ó le ṣe agbada ni ọjọ́ mẹ́ta. ₦45,000. Ṣé o fẹ́?' },
+      { side: 'user', text: 'Bẹ́ẹ̀ni, jọ̀wọ́ book fún mi' },
+      { side: 'agent', text: 'Ó ti book ✓ Tailor Kọ́lá yóò pè ọ́ lọ́la fún measurement. Owó wà ní escrow.' },
+    ],
+  },
+  {
+    title: 'AC Repair',
+    lang: 'Hausa',
+    messages: [
+      { side: 'user', text: 'AC dina ba ta aiki. Ina bukatar wanda zai gyara ta a Wuse' },
+      { side: 'agent', text: 'Ibrahim Cooling Services — verified, 4.8★. ₦10,000 don dubawa. Ko ka yarda?' },
+      { side: 'user', text: 'I, na yarda. Yaushe zai zo?' },
+      { side: 'agent', text: 'Zai zo yau da karfe 3. Kudin ka yana lafiya cikin escrow ✓' },
+    ],
+  },
+];
+
+function LiveConversation() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(sectionRef, { once: true, margin: '-100px' });
+  const hasStarted = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const currentConvo = CONVERSATIONS[activeIndex];
+
+  useEffect(() => {
+    if (!isInView || hasStarted.current) return;
+    hasStarted.current = true;
+    startConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInView]);
+
+  function startConversation() {
+    setVisibleCount(0);
+    setIsTyping(true);
+    timeoutRef.current = setTimeout(() => showNextMessage(0), 1500);
+  }
+
+  function showNextMessage(idx: number) {
+    setIsTyping(false);
+    setVisibleCount(idx + 1);
+
+    const convo = CONVERSATIONS[activeIndex];
+    if (idx + 1 < convo.messages.length) {
+      setIsTyping(true);
+      const nextIsAgent = convo.messages[idx + 1]?.side === 'agent';
+      timeoutRef.current = setTimeout(() => showNextMessage(idx + 1), nextIsAgent ? 2800 : 2000);
+    } else {
+      // Conversation done — wait then cycle to next
+      timeoutRef.current = setTimeout(() => {
+        setActiveIndex((prev) => (prev + 1) % CONVERSATIONS.length);
+      }, 5000);
+    }
+  }
+
+  // When activeIndex changes, start the new conversation
+  useEffect(() => {
+    if (!hasStarted.current) return;
+    startConversation();
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex]);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [visibleCount]);
+
+  return (
+    <div ref={sectionRef} className="bg-card border border-border rounded-2xl shadow-elevated overflow-hidden">
+      <div className="px-4 py-3 border-b border-border bg-secondary/30 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <p className="text-xs font-medium text-muted-foreground">{currentConvo.title}</p>
+        </div>
+        <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">{currentConvo.lang}</span>
+      </div>
+      <div ref={containerRef} className="px-4 py-5 space-y-3 min-h-[220px]">
+        {currentConvo.messages.slice(0, visibleCount).map((msg, idx) => (
+          <motion.div
+            key={`${activeIndex}-${idx}`}
+            initial={{ opacity: 0, x: msg.side === 'user' ? 30 : -30, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className={msg.side === 'user' ? 'flex justify-end' : 'flex justify-start'}
+          >
+            <div className={`max-w-[80%] sm:max-w-[70%] px-4 py-3 text-sm sm:text-base ${
+              msg.side === 'user'
+                ? 'bubble-user bg-primary text-primary-foreground'
+                : 'bubble-agent bg-card border border-border shadow-sm text-foreground'
+            }`}>
+              {msg.text}
+            </div>
+          </motion.div>
+        ))}
+        {isTyping && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-start"
+          >
+            <div className="px-4 py-3 bubble-agent bg-card border border-border shadow-sm">
+              <span className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </div>
+      {/* Conversation indicators */}
+      <div className="px-4 py-3 border-t border-border bg-secondary/20 flex justify-center gap-1.5">
+        {CONVERSATIONS.map((_, i) => (
+          <div
+            key={i}
+            className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
+              i === activeIndex ? 'bg-primary' : 'bg-muted-foreground/20'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Homepage() {
   // Live counter — starts at a base and ticks up
   const [jobsCompleted, setJobsCompleted] = useState(1247);
@@ -251,32 +474,8 @@ export default function Homepage() {
             <p className="text-muted-foreground text-center max-w-xl mx-auto mb-14">This is what it actually looks like when you message SpringUpAI.</p>
           </Section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Conversation 1 */}
-            <div className="bg-card border border-border rounded-2xl shadow-elevated overflow-hidden">
-              <div className="px-4 py-3 border-b border-border bg-secondary/30">
-                <p className="text-xs font-medium text-muted-foreground">Home Service Request</p>
-              </div>
-              <div className="px-4 py-5 space-y-3">
-                <ChatBubble side="user" delay={0}>I need a plumber in Ikeja</ChatBubble>
-                <ChatBubble side="agent" delay={0.15}>Got it. Verified plumber available. ₦15,000 estimate. Proceed?</ChatBubble>
-                <ChatBubble side="user" delay={0.3}>Yes</ChatBubble>
-                <ChatBubble side="agent" delay={0.45}>Done ✓ Plumber arriving in 30 minutes. You&apos;ll pay after the work is verified.</ChatBubble>
-              </div>
-            </div>
-
-            {/* Conversation 2 */}
-            <div className="bg-card border border-border rounded-2xl shadow-elevated overflow-hidden">
-              <div className="px-4 py-3 border-b border-border bg-secondary/30">
-                <p className="text-xs font-medium text-muted-foreground">Bill Payment</p>
-              </div>
-              <div className="px-4 py-5 space-y-3">
-                <ChatBubble side="user" delay={0}>Pay my electricity bill</ChatBubble>
-                <ChatBubble side="agent" delay={0.15}>Found your IKEDC bill: ₦8,200. Confirm payment?</ChatBubble>
-                <ChatBubble side="user" delay={0.3}>Yes, pay it</ChatBubble>
-                <ChatBubble side="agent" delay={0.45}>Paid ✓ Receipt sent. Balance updated.</ChatBubble>
-              </div>
-            </div>
+          <div className="max-w-lg mx-auto">
+            <LiveConversation />
           </div>
         </div>
       </section>
@@ -471,11 +670,15 @@ export default function Homepage() {
       {/* Footer */}
       <footer className="border-t border-border py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex flex-col items-center gap-6">
             <Logo />
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6 text-sm text-muted-foreground">
               <a href="/vendor/signup" className="hover:text-foreground transition">For Vendors</a>
               <a href="https://wa.me/2347039986047" className="hover:text-foreground transition">Contact</a>
+              <a href="/privacy-policy" className="hover:text-foreground transition">Privacy Policy</a>
+              <a href="/terms-and-conditions" className="hover:text-foreground transition">Terms &amp; Conditions</a>
+              <a href="/refund-policy" className="hover:text-foreground transition">Refund Policy</a>
+              <a href="/return-policy" className="hover:text-foreground transition">Return Policy</a>
             </div>
             <p className="text-xs text-muted-foreground">&copy; 2026 SpringUpAI. All rights reserved.</p>
           </div>
