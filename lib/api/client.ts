@@ -1,16 +1,43 @@
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
-  "https://i3b9muhewd.us-east-2.awsapprunner.com";
+  "https://api.springupai.com";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+type ResponseType = "json" | "blob" | "text" | "response";
 
 interface RequestOptions {
   method?: Method;
   body?: unknown;
   params?: Record<string, string | number | undefined>;
   headers?: Record<string, string>;
+  responseType?: ResponseType;
   /** Skip attaching the Authorization header */
   noAuth?: boolean;
+}
+
+function buildUrl(
+  path: string,
+  params?: Record<string, string | number | undefined>
+) {
+  let url = `${BASE_URL}${path}`;
+
+  if (params) {
+    const searchParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) searchParams.set(key, String(value));
+    }
+    const qs = searchParams.toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  return url;
+}
+
+export function buildApiUrl(
+  path: string,
+  params?: Record<string, string | number | undefined>
+) {
+  return buildUrl(path, params);
 }
 
 function getToken(): string | null {
@@ -84,25 +111,25 @@ export async function api<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = "GET", body, params, headers = {}, noAuth } = options;
+  const {
+    method = "GET",
+    body,
+    params,
+    headers = {},
+    noAuth,
+    responseType = "json",
+  } = options;
 
-  let url = `${BASE_URL}${path}`;
-
-  if (params) {
-    const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) searchParams.set(key, String(value));
-    }
-    const qs = searchParams.toString();
-    if (qs) url += `?${qs}`;
-  }
+  const url = buildUrl(path, params);
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
   const makeRequest = async () => {
     const token = getToken();
-    const reqHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...headers,
-    };
+    const reqHeaders: Record<string, string> = { ...headers };
+
+    if (!isFormData && body !== undefined && !reqHeaders["Content-Type"]) {
+      reqHeaders["Content-Type"] = "application/json";
+    }
 
     if (!noAuth && token) {
       reqHeaders["Authorization"] = `Bearer ${token}`;
@@ -111,7 +138,12 @@ export async function api<T>(
     return fetch(url, {
       method,
       headers: reqHeaders,
-      body: body ? JSON.stringify(body) : undefined,
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? (body as FormData)
+            : JSON.stringify(body),
     });
   };
 
@@ -137,6 +169,18 @@ export async function api<T>(
   }
 
   if (res.status === 204) return undefined as T;
+
+  if (responseType === "response") {
+    return res as T;
+  }
+
+  if (responseType === "blob") {
+    return (await res.blob()) as T;
+  }
+
+  if (responseType === "text") {
+    return (await res.text()) as T;
+  }
 
   return res.json() as Promise<T>;
 }
