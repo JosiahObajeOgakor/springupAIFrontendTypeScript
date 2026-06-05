@@ -269,6 +269,56 @@ export interface ChatInitResponse {
   conversationId: string;
 }
 
+// ─── Radio / Streaming ──────────────────────────────────────────────────────
+export interface RadioTrack {
+  id: string;
+  title: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+  duration_seconds?: number;
+  duration?: number;
+  mime_type?: string;
+  file_name?: string;
+  artwork_url?: string;
+  stream_url?: string;
+  size_bytes?: number;
+  uploaded_by?: string;
+  created_at?: string;
+}
+
+export interface RadioTrackCollectionResponse {
+  tracks?: RadioTrack[];
+  items?: RadioTrack[];
+  data?: RadioTrack[];
+  total?: number;
+}
+
+export interface RadioSingleUploadPayload {
+  file: File;
+  title?: string;
+  artist?: string;
+  album?: string;
+  genre?: string;
+}
+
+export interface RadioBatchUploadPayload {
+  files: File[];
+}
+
+export interface RadioUploadResponse {
+  message?: string;
+  track?: RadioTrack;
+  tracks?: RadioTrack[];
+  data?: RadioTrack | RadioTrack[];
+}
+
+export interface RadioCheckPayload {
+  current_track_id?: string;
+  played_track_ids?: string[];
+  buffer_size?: number;
+}
+
 // ─── Bills / Remita ──────────────────────────────────────────────────────────
 export interface AirtimePayload {
   phone: string;
@@ -388,4 +438,25 @@ export interface PaginatedResponse<T> {
 export interface KycOverridePayload {
   vendor_id: string;
   kyc_status: string;
+}
+
+export interface EbookAdvanceReviewPayload {
+  request_id: string;
+  decision: 'approve' | 'reject';
+  reason?: string;
+}
+
+export interface EmbedKeyCreatePayload {
+  tenant_name?: string;
+  domain?: string;
+}
+
+export interface EmbedKeyCreateResponse {
+  embed_key: string;
+  tenant_name: string;
+  usage: string;
+}
+
+export interface EmbedKeyRevokePayload {
+  embed_key: string;
 }

@@ -1,0 +1,12 @@
+{
+  "watch": [
+    "next.config.mjs",
+    "tailwind.config.ts",
+    "tsconfig.json",
+    ".env.local",
+    ".env"
+  ],
+  "ext": "mjs,ts,json",
+  "exec": "next dev",
+  "delay": "1000"
+}
