@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Key } from 'lucide-react';
 import { adminLogin, ApiError } from '@/lib/api';
 import { Logo } from '@/components/logo';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,7 +20,6 @@ import { Label } from '@/components/ui/label';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
   const [secret, setSecret] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,21 +28,21 @@ export default function AdminLoginPage() {
     event.preventDefault();
     setError('');
 
-    if (!phone.trim() || !secret.trim()) {
-      setError('Phone and secret are required.');
+    if (!secret.trim()) {
+      setError('Admin key is required.');
       return;
     }
 
     setLoading(true);
     try {
       await adminLogin({
-        phone: phone.trim(),
+        phone: '',
         secret: secret.trim(),
       });
       router.push('/admin');
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setError('Invalid admin credentials.');
+        setError('Invalid admin key.');
       } else {
         setError('Admin login failed. Please try again.');
       }
@@ -69,34 +68,24 @@ export default function AdminLoginPage() {
           <Card className="rounded-3xl shadow-float overflow-hidden">
             <CardHeader className="gradient-primary text-white">
               <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center mb-4">
-                <Shield size={22} className="text-white" />
+                <Key size={22} className="text-white" />
               </div>
               <CardTitle className="text-2xl">Admin access</CardTitle>
               <CardDescription className="text-white/75">
-                Sign in with your admin phone and secret to access the SpringUpAI admin console.
+                Enter your admin key to access the SpringUpAI admin console.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 sm:p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-phone">Phone number</Label>
-                  <Input
-                    id="admin-phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="0801 234 5678"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="admin-secret">Admin secret</Label>
+                  <Label htmlFor="admin-secret">Admin key</Label>
                   <Input
                     id="admin-secret"
                     type="password"
                     value={secret}
                     onChange={(event) => setSecret(event.target.value)}
-                    placeholder="Enter admin secret"
+                    placeholder="Enter your admin key"
+                    autoFocus
                   />
                 </div>
 

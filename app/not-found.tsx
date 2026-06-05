@@ -9,17 +9,16 @@ export default function NotFound() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          router.push('/')
-          return 0
-        }
-        return prev - 1
-      })
+      setCountdown((prev) => (prev <= 1 ? 0 : prev - 1))
     }, 1000)
     return () => clearInterval(interval)
-  }, [router])
+  }, [])
+
+  useEffect(() => {
+    if (countdown === 0) {
+      router.push('/')
+    }
+  }, [countdown, router])
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 overflow-hidden relative">
