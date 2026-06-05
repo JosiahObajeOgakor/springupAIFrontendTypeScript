@@ -7,6 +7,7 @@ export * from "./wallet";
 export * from "./escrow";
 export * from "./marketplace";
 export * from "./mediation";
+export * from "./chat";
 export * from "./bills";
 export * from "./kyc";
 export * from "./payout";

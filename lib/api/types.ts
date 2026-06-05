@@ -252,6 +252,23 @@ export interface Message {
   created_at: string;
 }
 
+export interface ChatInitPayload {
+  phone: string;
+  audience: 'guest' | 'vendor';
+  source?: string;
+}
+
+export interface ChatInitApiResponse {
+  conversation_id?: string;
+  conversationId?: string;
+  session_id?: string;
+  sessionId?: string;
+}
+
+export interface ChatInitResponse {
+  conversationId: string;
+}
+
 // ─── Bills / Remita ──────────────────────────────────────────────────────────
 export interface AirtimePayload {
   phone: string;

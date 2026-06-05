@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap, AlertTriangle, Upload, FileText, Briefcase, BanknoteIcon, Link2, Copy, Share2, Gift } from 'lucide-react';
+import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap, AlertTriangle, Upload, FileText, Briefcase, BanknoteIcon, Link2, Copy, Share2, Gift, MessageCircle } from 'lucide-react';
 import { getVendorServices, checkPlan, getKycStatus, getKycPresignUrl, submitKyc, withdraw } from '@/lib/api';
 import type { VendorService, PlanCheckResponse, KycStatusResponse } from '@/lib/api';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
@@ -291,6 +292,22 @@ function DashboardContent() {
                 <p className="text-sm text-muted-foreground">{item.text}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="mb-8 rounded-3xl border border-border bg-card shadow-float overflow-hidden">
+          <div className="gradient-primary px-6 py-6 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70 mb-2">Shared chat flow</p>
+              <h3 className="text-xl font-bold mb-1">Start the same WhatsApp-style chat vendors and users use</h3>
+              <p className="text-sm text-white/80 max-w-2xl">Use your 11 digit Nigerian phone number to initiate a web chat session. This now routes vendors through the same shared entry point as the public site.</p>
+            </div>
+            <Link
+              href="/chat?source=vendor"
+              className="shrink-0 px-5 py-3 rounded-full bg-white text-primary font-semibold inline-flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+            >
+              <MessageCircle size={18} /> Start Chat
+            </Link>
           </div>
         </div>
 
