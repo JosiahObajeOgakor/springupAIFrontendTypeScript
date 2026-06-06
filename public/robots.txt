@@ -1,4 +1,10 @@
 User-agent: *
 Allow: /
 
+# Private / authenticated areas — keep out of the index
+Disallow: /admin
+Disallow: /admin/
+Disallow: /chat
+Disallow: /vendor/dashboard
+
 Sitemap: https://springupai.com/sitemap.xml

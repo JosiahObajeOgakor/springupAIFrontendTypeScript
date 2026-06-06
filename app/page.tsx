@@ -23,12 +23,23 @@ export const metadata: Metadata = {
     siteName: 'SpringUpAI',
     locale: 'en_NG',
     type: 'website',
+    images: [
+      {
+        url: 'https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png',
+        width: 1200,
+        height: 630,
+        alt: 'SpringUpAI — Fix, Pay, or Book Anything via WhatsApp',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'SpringUpAI - Fix, Pay, or Book Anything via WhatsApp',
     description:
       'Handle home services, bill payments, and everyday tasks through WhatsApp. No apps needed.',
+    images: [
+      'https://res.cloudinary.com/detpqzhnq/image/upload/v1778105093/ChatGPT_Image_May_6_2026_10_42_50_PM_nvfwu3.png',
+    ],
   },
   robots: {
     index: true,
