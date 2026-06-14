@@ -1,7 +1,9 @@
-import { api, buildApiUrl } from "./client";
+import { api, buildApiUrl, uploadWithProgress } from "./client";
 import type {
   RadioBatchUploadPayload,
   RadioCheckPayload,
+  RadioCheckResponse,
+  RadioPreloadManifest,
   RadioSingleUploadPayload,
   RadioTrack,
   RadioTrackCollectionResponse,
@@ -16,7 +18,10 @@ function extractTracks(payload: RadioTrack[] | RadioTrackCollectionResponse) {
   return payload.tracks ?? payload.items ?? payload.data ?? [];
 }
 
-export async function uploadRadioTrack(payload: RadioSingleUploadPayload) {
+export async function uploadRadioTrack(
+  payload: RadioSingleUploadPayload,
+  onProgress?: (percent: number) => void,
+) {
   const formData = new FormData();
   formData.append("file", payload.file);
 
@@ -25,13 +30,20 @@ export async function uploadRadioTrack(payload: RadioSingleUploadPayload) {
   if (payload.album) formData.append("album", payload.album);
   if (payload.genre) formData.append("genre", payload.genre);
 
+  if (onProgress) {
+    return uploadWithProgress<RadioUploadResponse>("/api/v1/radio/upload", formData, { onProgress });
+  }
+
   return api<RadioUploadResponse>("/api/v1/radio/upload", {
     method: "POST",
     body: formData,
   });
 }
 
-export async function uploadRadioBatch(payload: RadioBatchUploadPayload) {
+export async function uploadRadioBatch(
+  payload: RadioBatchUploadPayload,
+  onProgress?: (percent: number) => void,
+) {
   if (payload.files.length === 0) {
     throw new Error("Select at least one file to upload");
   }
@@ -43,6 +55,10 @@ export async function uploadRadioBatch(payload: RadioBatchUploadPayload) {
   const formData = new FormData();
   for (const file of payload.files) {
     formData.append("files", file);
+  }
+
+  if (onProgress) {
+    return uploadWithProgress<RadioUploadResponse>("/api/v1/radio/upload/batch", formData, { onProgress });
   }
 
   return api<RadioUploadResponse>("/api/v1/radio/upload/batch", {
@@ -59,24 +75,15 @@ export async function listRadioTracks() {
   return extractTracks(response);
 }
 
-export async function preloadRadioTracks() {
-  const response = await api<RadioTrack[] | RadioTrackCollectionResponse>(
-    "/api/v1/radio/preload"
-  );
-
-  return extractTracks(response);
+export async function preloadRadioTracks(): Promise<RadioPreloadManifest> {
+  return api<RadioPreloadManifest>("/api/v1/radio/preload");
 }
 
-export async function checkRadioBuffer(payload: RadioCheckPayload = {}) {
-  const response = await api<RadioTrack[] | RadioTrackCollectionResponse>(
-    "/api/v1/radio/check",
-    {
-      method: "POST",
-      body: payload,
-    }
-  );
-
-  return extractTracks(response);
+export async function checkRadioBuffer(payload: RadioCheckPayload = {}): Promise<RadioCheckResponse> {
+  return api<RadioCheckResponse>("/api/v1/radio/check", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export async function streamRadioTrack(trackId: string) {

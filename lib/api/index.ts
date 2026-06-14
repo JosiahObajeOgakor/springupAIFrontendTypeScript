@@ -1,4 +1,4 @@
-export { api, ApiError, setToken, clearToken } from "./client";
+export { api, ApiError, uploadWithProgress } from "./client";
 export * from "./types";
 export * from "./auth";
 export * from "./user";
@@ -13,3 +13,4 @@ export * from "./bills";
 export * from "./kyc";
 export * from "./payout";
 export * from "./admin";
+export * from "./ebook";

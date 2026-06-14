@@ -36,12 +36,18 @@ export async function listAdminRadioTracks() {
   return listRadioTracks();
 }
 
-export async function uploadAdminRadioTrack(payload: RadioSingleUploadPayload) {
-  return uploadRadioTrack(payload);
+export async function uploadAdminRadioTrack(
+  payload: RadioSingleUploadPayload,
+  onProgress?: (percent: number) => void,
+) {
+  return uploadRadioTrack(payload, onProgress);
 }
 
-export async function uploadAdminRadioBatch(payload: RadioBatchUploadPayload) {
-  return uploadRadioBatch(payload);
+export async function uploadAdminRadioBatch(
+  payload: RadioBatchUploadPayload,
+  onProgress?: (percent: number) => void,
+) {
+  return uploadRadioBatch(payload, onProgress);
 }
 
 export async function reviewEbookAdvance(payload: EbookAdvanceReviewPayload) {

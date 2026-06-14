@@ -1,12 +1,15 @@
-import { api, setToken } from "./client";
+import { api } from "./client";
+import { store } from "@/lib/store";
+import { setCredentials } from "@/lib/store/authSlice";
+import { normalizePhone } from "@/lib/phone";
 import type {
   VendorRegisterPayload,
   VendorRegisterResponse,
-  VendorRegisterByPhonePayload,
-  VendorRegisterByPhoneResponse,
   VendorLoginResponse,
   VendorUpdatePayload,
   VendorContactPayload,
+  VendorProfile,
+  Vendor,
   VendorService,
   CreateServicePayload,
   TierApplyPayload,
@@ -15,51 +18,54 @@ import type {
 } from "./types";
 
 export async function registerVendor(payload: VendorRegisterPayload) {
-  const res = await api<VendorRegisterResponse>("/api/v1/vendor/register", {
+  const res = await api<VendorRegisterResponse>("/api/v1/vendor/register-by-phone", {
     method: "POST",
-    body: payload,
+    body: { ...payload, phone: normalizePhone(payload.phone) },
     noAuth: true,
   });
-  setToken(res.token);
-  localStorage.setItem("vendor", JSON.stringify(res.vendor));
-  localStorage.setItem("vendor_id", res.vendor.id);
-  return res;
-}
-
-export async function registerVendorByPhone(payload: VendorRegisterByPhonePayload) {
-  const res = await api<VendorRegisterByPhoneResponse>("/api/v1/vendor/register-by-phone", {
-    method: "POST",
-    body: payload,
-    noAuth: true,
-  });
-  setToken(res.token);
-  localStorage.setItem("vendor", JSON.stringify(res.vendor));
-  localStorage.setItem("vendor_id", res.vendor.id);
+  const vendorId = res.vendor?.id ?? (res as any).vendor_id ?? res.user_id ?? '';
+  store.dispatch(setCredentials({
+    token: res.token,
+    vendorId,
+    vendor: res.vendor as unknown as Record<string, unknown>,
+  }));
   return res;
 }
 
 export async function vendorLogin(phone: string) {
   const res = await api<VendorLoginResponse>("/api/v1/vendor/login", {
     method: "POST",
-    body: { phone },
+    body: { phone: normalizePhone(phone) },
     noAuth: true,
   });
-  setToken(res.token);
-  localStorage.setItem("vendor_id", res.vendor_id);
+  const vendorId = res.vendor_id ?? (res as any).vendor?.id ?? '';
+  store.dispatch(setCredentials({
+    token: res.token,
+    vendorId,
+  }));
   return res;
 }
 
+// PATCH /api/v1/vendor/update — update the authenticated vendor's profile.
 export async function updateVendorProfile(payload: VendorUpdatePayload) {
-  return api<void>("/api/v1/vendor/update", {
+  return api<Vendor>("/api/v1/vendor/update", {
     method: "PATCH",
     body: payload,
   });
 }
 
+// POST /api/v1/vendor/contact — send a message to a vendor.
 export async function contactVendor(payload: VendorContactPayload) {
   return api<void>("/api/v1/vendor/contact", {
     method: "POST",
     body: payload,
+  });
+}
+
+// GET /api/v1/vendor/profile — public profile card (trust signals, KYC status).
+export async function getVendorProfile(vendorId: string) {
+  return api<VendorProfile>("/api/v1/vendor/profile", {
+    params: { vendor_id: vendorId },
   });
 }
 

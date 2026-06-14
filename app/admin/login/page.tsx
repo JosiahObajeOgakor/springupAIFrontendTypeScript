@@ -35,10 +35,7 @@ export default function AdminLoginPage() {
 
     setLoading(true);
     try {
-      await adminLogin({
-        phone: '',
-        secret: secret.trim(),
-      });
+      await adminLogin({ secret: secret.trim() });
       router.push('/admin');
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

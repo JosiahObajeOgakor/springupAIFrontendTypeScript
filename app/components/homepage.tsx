@@ -2,9 +2,9 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { ArrowRight, CheckCircle, Shield, MessageCircle, Zap, Clock, CreditCard, Wrench, Lightbulb, Wind, Phone, Gift, Users, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChevronDown, Shield, MessageCircle, Zap, Clock, CreditCard, Wrench, Lightbulb, Wind, Phone, Gift, Users, TrendingUp } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { MusicPlayer } from '@/components/music-player';
+
 
 function Section({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   const ref = useRef(null);
@@ -267,6 +267,27 @@ function LiveConversation() {
   );
 }
 
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="py-4">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-4 text-left"
+      >
+        <span className="font-medium text-sm sm:text-base">{q}</span>
+        <ChevronDown
+          size={18}
+          className={`text-muted-foreground shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed">{a}</p>
+      )}
+    </div>
+  );
+}
+
 export default function Homepage() {
   // Live counter — starts at a base and ticks up
   const [jobsCompleted, setJobsCompleted] = useState(1247);
@@ -331,11 +352,35 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-lg sm:text-xl text-muted-foreground text-center max-w-2xl mx-auto mb-10"
+            className="text-lg sm:text-xl text-muted-foreground text-center max-w-2xl mx-auto mb-6"
           >
             Fix, pay, or book anything — no apps, no stress.<br className="hidden sm:block" />
             Send a WhatsApp message. We take it from there.
           </motion.p>
+
+          {/* Suggestion Chips */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.38 }}
+            className="flex flex-wrap justify-center gap-2 mb-8"
+          >
+            {[
+              'Fix my AC',
+              'Pay my electricity',
+              'I need a plumber in Lekki',
+              'Recharge ₦1,000 MTN',
+              'Book a hairstylist',
+            ].map((chip) => (
+              <a
+                key={chip}
+                href="/chat"
+                className="px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-primary/5 transition-colors"
+              >
+                {chip}
+              </a>
+            ))}
+          </motion.div>
 
           {/* CTAs */}
           <motion.div
@@ -444,14 +489,14 @@ export default function Homepage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {[
+              { icon: CreditCard, label: 'Electricity Bills' },
+              { icon: Phone, label: 'Airtime & Data' },
+              { icon: CreditCard, label: 'Cable TV' },
+              { icon: CreditCard, label: 'Internet' },
               { icon: Wrench, label: 'Plumbing' },
               { icon: Wind, label: 'AC Repair' },
               { icon: Lightbulb, label: 'Electrical' },
               { icon: Wrench, label: 'Appliances' },
-              { icon: CreditCard, label: 'Electricity Bills' },
-              { icon: Phone, label: 'Airtime & Data' },
-              { icon: CreditCard, label: 'Internet' },
-              { icon: CreditCard, label: 'Cable TV' },
             ].map((service, i) => (
               <Section key={service.label} delay={i * 0.05}>
                 <div className="group bg-card border border-border rounded-xl p-5 text-center hover:shadow-float hover:-translate-y-1 transition-all duration-300 cursor-default">
@@ -511,12 +556,14 @@ export default function Homepage() {
             <h2 className="text-3xl sm:text-4xl font-bold text-center mb-14">Safe by design</h2>
           </Section>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
             {[
               { icon: Shield, text: 'Money held until work is verified' },
               { icon: CheckCircle, text: 'Only verified professionals' },
               { icon: MessageCircle, text: 'Support if anything goes wrong' },
               { icon: CreditCard, text: 'You approve every payment' },
+              { icon: Shield, text: 'NDPR compliant — your data is private' },
+              { icon: MessageCircle, text: 'Dispute? We mediate until you\'re satisfied' },
             ].map((item, i) => (
               <Section key={item.text} delay={i * 0.1}>
                 <div className="bg-card border border-border rounded-xl p-5 text-center hover:shadow-elevated transition-shadow duration-300">
@@ -528,6 +575,40 @@ export default function Homepage() {
               </Section>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-20 sm:py-28 bg-secondary/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Section>
+            <p className="text-sm font-medium text-primary text-center mb-2 tracking-wide uppercase">Common questions</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">Good to know</h2>
+          </Section>
+          <Section delay={0.1}>
+            <div className="max-w-2xl mx-auto divide-y divide-border">
+              <FaqItem
+                q="Is my money safe?"
+                a="Yes. We hold your payment in escrow from the moment you agree to a price. It's only released to the vendor after you confirm the job is done. If nothing happens, you get a full refund."
+              />
+              <FaqItem
+                q="What if the vendor doesn't show up?"
+                a="You get a full refund, no questions asked. We'll also flag or suspend the vendor from the platform."
+              />
+              <FaqItem
+                q="Is there VAT on transactions?"
+                a="Yes — 7.5% VAT applies to all transactions in line with FIRS requirements. It will be shown clearly before you confirm any payment."
+              />
+              <FaqItem
+                q="What content is allowed?"
+                a="Only legal, lawful services. We don't support adult content, illegal items, financial fraud, or anything that violates Nigerian law or our content policy."
+              />
+              <FaqItem
+                q="How do I raise a dispute?"
+                a="Just message us through the chat. We aim to mediate and resolve all disputes within 24 hours."
+              />
+            </div>
+          </Section>
         </div>
       </section>
 
@@ -683,12 +764,13 @@ export default function Homepage() {
               <a href="/return-policy" className="hover:text-foreground transition">Return Policy</a>
             </div>
             <p className="text-xs text-muted-foreground">&copy; 2026 SpringUpAI. All rights reserved.</p>
+            <p className="text-xs text-muted-foreground/60 text-center max-w-lg">
+              Payments subject to 7.5% VAT (FIRS). Personal data handled under NDPR. Content policy applies — lawful requests only.
+            </p>
           </div>
         </div>
       </footer>
 
-      {/* Floating Music Player */}
-      <MusicPlayer />
     </div>
   );
 }

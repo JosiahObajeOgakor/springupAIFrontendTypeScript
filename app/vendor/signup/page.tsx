@@ -3,9 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, CheckCircle, Zap, Gift } from 'lucide-react';
-import { registerVendorByPhone, ApiError } from '@/lib/api';
-import { useAppDispatch } from '@/lib/store/hooks';
-import { setCredentials } from '@/lib/store/authSlice';
+import { registerVendor, ApiError } from '@/lib/api';
 import { Logo } from '@/components/logo';
 
 export default function VendorSignup() {
@@ -20,7 +18,6 @@ function VendorSignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const referralCode = searchParams.get('ref') || '';
-  const dispatch = useAppDispatch();
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -46,18 +43,13 @@ function VendorSignupContent() {
     }
 
     try {
-      const res = await registerVendorByPhone({
+      await registerVendor({
         phone: formData.phone.trim(),
         name: formData.fullName.trim(),
         category: formData.serviceCategory,
         location: formData.location.trim(),
         ...(referralCode ? { referral_code: referralCode } : {}),
       });
-      dispatch(setCredentials({
-        token: localStorage.getItem('token')!,
-        vendorId: res.vendor.id,
-        vendor: res.vendor,
-      }));
       router.push('/vendor/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -153,10 +145,60 @@ function VendorSignupContent() {
                   className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all"
                 >
                   <option value="">Select a service</option>
-                  <option value="plumber">Plumber</option>
-                  <option value="electrician">Electrician</option>
-                  <option value="ac-repair">AC Repair</option>
-                  <option value="appliance">Appliance Repair</option>
+                  <optgroup label="Home Services">
+                    <option value="Cleaning">Cleaning</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Painting">Painting</option>
+                    <option value="Carpentry">Carpentry</option>
+                    <option value="Fumigation">Fumigation / Pest Control</option>
+                    <option value="Air Conditioning">Air Conditioning Repair</option>
+                    <option value="Generator Repair">Generator Repair</option>
+                    <option value="Tiling">Tiling</option>
+                    <option value="Home Security">Home Security Installation</option>
+                  </optgroup>
+                  <optgroup label="Beauty &amp; Personal Care">
+                    <option value="Haircut">Haircut / Barbing</option>
+                    <option value="Braiding">Hair Braiding / Styling</option>
+                    <option value="Makeup">Makeup Artist</option>
+                    <option value="Manicure & Pedicure">Manicure &amp; Pedicure</option>
+                    <option value="Massage">Massage Therapy</option>
+                    <option value="Skincare">Skincare / Facial</option>
+                  </optgroup>
+                  <optgroup label="Logistics &amp; Transport">
+                    <option value="Dispatch">Dispatch / Delivery</option>
+                    <option value="Moving">House Moving / Relocation</option>
+                    <option value="Ride">Ride / Chauffeur</option>
+                    <option value="Errand">Errand Running</option>
+                  </optgroup>
+                  <optgroup label="Tech &amp; Digital">
+                    <option value="Phone Repair">Phone / Gadget Repair</option>
+                    <option value="Laptop Repair">Laptop Repair</option>
+                    <option value="IT Support">IT Support</option>
+                    <option value="Graphic Design">Graphic Design</option>
+                    <option value="Web Design">Web Design</option>
+                    <option value="Social Media">Social Media Management</option>
+                    <option value="Photography">Photography</option>
+                    <option value="Videography">Videography</option>
+                  </optgroup>
+                  <optgroup label="Education &amp; Training">
+                    <option value="Tutoring">Private Tutoring</option>
+                    <option value="Driving Lessons">Driving Lessons</option>
+                    <option value="Fitness Training">Fitness / Personal Training</option>
+                    <option value="Cooking Classes">Cooking Classes</option>
+                  </optgroup>
+                  <optgroup label="Food &amp; Catering">
+                    <option value="Catering">Catering / Events Food</option>
+                    <option value="Meal Prep">Meal Prep / Delivery</option>
+                    <option value="Baking">Baking / Pastry</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="Laundry">Laundry / Dry Cleaning</option>
+                    <option value="Tailoring">Tailoring / Fashion</option>
+                    <option value="Event Planning">Event Planning</option>
+                    <option value="Security">Security Guard</option>
+                    <option value="Other">Other</option>
+                  </optgroup>
                 </select>
               </div>
 

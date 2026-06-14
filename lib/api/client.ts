@@ -1,6 +1,20 @@
+import { store } from '@/lib/store';
+import { updateToken, clearAuth } from '@/lib/store/authSlice';
+import { useUiStore } from '@/lib/stores/ui-store';
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "https://api.springupai.com";
+
+// ─── Global loading tracker ─────────────────────────────────────────────────
+// Minor UI state lives in the Zustand ui-store; GlobalSpinner subscribes to it.
+function trackStart() {
+  useUiStore.getState().startLoading();
+}
+
+function trackEnd() {
+  useUiStore.getState().endLoading();
+}
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type ResponseType = "json" | "blob" | "text" | "response";
@@ -11,7 +25,6 @@ interface RequestOptions {
   params?: Record<string, string | number | undefined>;
   headers?: Record<string, string>;
   responseType?: ResponseType;
-  /** Skip attaching the Authorization header */
   noAuth?: boolean;
 }
 
@@ -42,15 +55,12 @@ export function buildApiUrl(
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+  return store.getState().auth.token;
 }
 
-export function setToken(token: string) {
-  localStorage.setItem("token", token);
-}
-
-export function clearToken() {
-  localStorage.removeItem("token");
+function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return store.getState().auth.refreshToken;
 }
 
 export class ApiError extends Error {
@@ -67,7 +77,8 @@ let isRefreshing = false;
 let refreshPromise: Promise<void> | null = null;
 
 async function attemptRefresh(): Promise<boolean> {
-  const rt = localStorage.getItem("refresh_token");
+  if (typeof window === "undefined") return false;
+  const rt = getRefreshToken();
   if (!rt) return false;
   try {
     const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
@@ -77,8 +88,14 @@ async function attemptRefresh(): Promise<boolean> {
     });
     if (!res.ok) return false;
     const data = await res.json();
-    if (data.token) setToken(data.token);
-    if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
+    if (data.token) {
+      store.dispatch(
+        updateToken({
+          token: data.token,
+          refreshToken: data.refresh_token,
+        })
+      );
+    }
     return true;
   } catch {
     return false;
@@ -92,10 +109,14 @@ function queueRefresh(): Promise<void> {
       isRefreshing = false;
       refreshPromise = null;
       if (!ok) {
-        clearToken();
-        localStorage.removeItem("refresh_token");
+        store.dispatch(clearAuth());
         if (typeof window !== "undefined") {
-          window.location.href = "/vendor/login";
+          const path = window.location.pathname;
+          if (path.startsWith("/admin")) {
+            window.location.href = "/admin/login";
+          } else {
+            window.location.href = "/";
+          }
         }
       }
     });
@@ -123,6 +144,8 @@ export async function api<T>(
   const url = buildUrl(path, params);
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
+  trackStart();
+  try {
   const makeRequest = async () => {
     const token = getToken();
     const reqHeaders: Record<string, string> = { ...headers };
@@ -149,13 +172,11 @@ export async function api<T>(
 
   let res = await makeRequest();
 
-  // Handle 401 — attempt token refresh and retry once
   if (res.status === 401 && !noAuth) {
     await queueRefresh();
     res = await makeRequest();
   }
 
-  // Handle 429 — wait and retry once
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
     const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
@@ -183,4 +204,60 @@ export async function api<T>(
   }
 
   return res.json() as Promise<T>;
+  } finally {
+    trackEnd();
+  }
+}
+
+export function uploadWithProgress<T = unknown>(
+  path: string,
+  body: FormData | Blob | File,
+  options: {
+    method?: string;
+    headers?: Record<string, string>;
+    onProgress?: (percent: number) => void;
+    noAuth?: boolean;
+  } = {},
+): Promise<T> {
+  const { method = "POST", headers = {}, onProgress, noAuth } = options;
+  const url = path.startsWith("http") ? path : `${BASE_URL}${path}`;
+
+  trackStart();
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+
+    if (!noAuth) {
+      const token = getToken();
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      trackEnd();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as T);
+        } catch {
+          resolve(undefined as T);
+        }
+      } else {
+        reject(new ApiError(xhr.status, xhr.responseText));
+      }
+    });
+
+    xhr.addEventListener("error", () => { trackEnd(); reject(new Error("Upload network error")); });
+    xhr.addEventListener("abort", () => { trackEnd(); reject(new Error("Upload aborted")); });
+
+    xhr.send(body);
+  });
 }

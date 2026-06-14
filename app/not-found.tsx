@@ -1,10 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function NotFound() {
-  const router = useRouter()
   const [countdown, setCountdown] = useState(10)
 
   useEffect(() => {
@@ -16,9 +14,9 @@ export default function NotFound() {
 
   useEffect(() => {
     if (countdown === 0) {
-      router.push('/')
+      window.location.replace('/')
     }
-  }, [countdown, router])
+  }, [countdown])
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 overflow-hidden relative">
@@ -145,7 +143,7 @@ export default function NotFound() {
 
         {/* CTA button */}
         <button
-          onClick={() => router.push('/')}
+          onClick={() => window.location.replace('/')}
           className="group relative inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-semibold text-white text-sm shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95 animate-[fade-up_0.6s_ease-out_0.6s_both]"
           style={{ background: 'oklch(0.35 0.15 142)' }}
         >

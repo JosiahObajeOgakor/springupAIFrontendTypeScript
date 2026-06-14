@@ -2,6 +2,9 @@ import { api } from "./client";
 import type {
   WalletFundPayload,
   WalletFundResponse,
+  WalletEscrowPayload,
+  WalletReleasePayload,
+  WalletRefundPayload,
   VirtualAccountPayload,
   InternalTransferPayload,
   WalletWithdrawPayload,
@@ -9,6 +12,27 @@ import type {
 
 export async function fundWallet(payload: WalletFundPayload) {
   return api<WalletFundResponse>("/api/v1/wallet/fund", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function holdEscrow(payload: WalletEscrowPayload) {
+  return api<void>("/api/v1/wallet/escrow", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function releaseEscrow(payload: WalletReleasePayload) {
+  return api<void>("/api/v1/wallet/release", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function refundFromEscrow(payload: WalletRefundPayload) {
+  return api<void>("/api/v1/wallet/refund", {
     method: "POST",
     body: payload,
   });

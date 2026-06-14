@@ -169,6 +169,11 @@
   100% { background-position: 200% 0; }
 }
 
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 .shimmer {
   background: linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 0.15) 50%, transparent 100%);
   background-size: 200% 100%;
@@ -192,6 +197,12 @@
 
 .animate-float-slow {
   animation: float-slow 8s ease-in-out infinite;
+}
+
+/* Gentle float for sticky FAB bubbles */
+@keyframes bubble-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 /* Pulse ring for play button */

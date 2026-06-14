@@ -30,12 +30,22 @@ export interface RefreshResponse {
 }
 
 export interface AdminLoginPayload {
-  phone: string;
+  /**
+   * Admin API key value (the ADMIN_API_KEY secret). Per the Gateway spec
+   * (POST /api/v1/admin/login) this is the only required field; the key may
+   * also be sent via the X-Admin-Key header.
+   */
   secret: string;
 }
 
 export interface AdminLoginResponse {
   token: string;
+}
+
+/** Generic `{ token }` payload (e.g. POST /api/v1/auth/vendor-token). */
+export interface TokenResponse {
+  token: string;
+  refresh_token?: string;
 }
 
 // ─── Vendor ──────────────────────────────────────────────────────────────────
@@ -57,28 +67,20 @@ export interface VendorRegisterPayload {
   location: string;
   email?: string;
   password?: string;
+  lat?: number;
+  lng?: number;
+  referral_code?: string;
+  user_id?: string;
 }
 
 export interface VendorRegisterResponse {
   token: string;
   vendor: Vendor;
   user_id: string;
-}
-
-export interface VendorRegisterByPhonePayload {
-  phone: string;
-  name: string;
-  category: string;
-  location: string;
-  lat?: number;
-  lng?: number;
-  referral_code?: string;
-}
-
-export interface VendorRegisterByPhoneResponse {
-  token: string;
-  vendor: Vendor;
-  user: Pick<User, "id" | "name" | "phone">;
+  /** Unique identifier for the vendor (usually the phone number). */
+  vendor_unique?: string;
+  /** Some deployments echo the auto-created user object. */
+  user?: Pick<User, "id" | "name" | "phone">;
 }
 
 export interface VendorLoginResponse {
@@ -87,15 +89,26 @@ export interface VendorLoginResponse {
   user: Pick<User, "id" | "name" | "phone">;
 }
 
+// PATCH /api/v1/vendor/update — returns the updated Vendor.
 export interface VendorUpdatePayload {
   name?: string;
   category?: string;
   location?: string;
+  bio?: string;
 }
 
+// POST /api/v1/vendor/contact — send a message to a vendor.
 export interface VendorContactPayload {
   vendor_id: string;
   message: string;
+}
+
+// GET /api/v1/vendor/profile — public profile card with trust signals.
+export interface VendorProfile extends Vendor {
+  bio?: string;
+  rating?: number;
+  reviews_count?: number;
+  trust_signals?: Record<string, unknown>;
 }
 
 // ─── Vendor Services ─────────────────────────────────────────────────────────
@@ -117,11 +130,30 @@ export interface CreateServicePayload {
   price: number;
   currency?: string;
   category?: string;
+  work_type?: 'soft' | 'physical';
+  location?: string;
+  nearest_landmark?: string;
+  pickup_radius_km?: number;
+  service_hours?: string;
+  available?: boolean;
 }
 
 // ─── Vendor Tier ─────────────────────────────────────────────────────────────
+// The gateway accepts gold/silver/platinum or the tier_1/2/3 aliases. Listing
+// caps: free = 1, gold = 3, silver = 5, platinum = unlimited.
+export type VendorTierLevel =
+  | 'tier_1'
+  | 'tier_2'
+  | 'tier_3'
+  | 'gold'
+  | 'silver'
+  | 'platinum';
+
 export interface TierApplyPayload {
-  tier: string;
+  vendor_id: string;
+  tier_level: VendorTierLevel;
+  email?: string;
+  callback_url?: string;
 }
 
 export interface TierApplyResponse {
@@ -149,14 +181,30 @@ export interface PlanCheckResponse {
 
 // ─── Wallet ──────────────────────────────────────────────────────────────────
 export interface WalletFundPayload {
+  owner_id?: string;
   amount: number;
-  currency: string;
-  email: string;
+  provider?: string;
+  ref?: string;
 }
 
 export interface WalletFundResponse {
   authorization_url: string;
   reference: string;
+}
+
+export interface WalletEscrowPayload {
+  job_id: string;
+  from_id: string;
+  to_id: string;
+  amount: number;
+}
+
+export interface WalletReleasePayload {
+  job_id: string;
+}
+
+export interface WalletRefundPayload {
+  job_id: string;
 }
 
 export interface VirtualAccountPayload {
@@ -226,7 +274,10 @@ export interface JobCompletePayload {
   job_id: string;
 }
 
-// ─── Mediation / Chat ────────────────────────────────────────────────────────
+// ─── Mediation ────────────────────────────────────────────────────────────────
+// NOTE: the /api/v1/mediation/* endpoints are NOT in the published gateway
+// OpenAPI spec. These bindings are kept for backends that expose mediation; the
+// web-chat UI itself uses the WhatsApp handoff below, not mediation.
 export interface OpenConversationPayload {
   participant_id: string;
   subject?: string;
@@ -252,21 +303,22 @@ export interface Message {
   created_at: string;
 }
 
+// ─── Web Chat (WhatsApp handoff) ──────────────────────────────────────────────
+// The gateway has no synchronous chat API; the web entry point captures a phone,
+// auto-registers a user, then hands off to WhatsApp. See lib/api/chat.ts.
+export type ChatAudience = 'guest' | 'user' | 'vendor' | 'admin';
+
 export interface ChatInitPayload {
   phone: string;
-  audience: 'guest' | 'vendor';
+  audience: ChatAudience;
   source?: string;
 }
 
-export interface ChatInitApiResponse {
-  conversation_id?: string;
-  conversationId?: string;
-  session_id?: string;
-  sessionId?: string;
-}
-
 export interface ChatInitResponse {
-  conversationId: string;
+  /** Whether a brand-new user was auto-registered during this handoff. */
+  registered: boolean;
+  /** wa.me deep link to continue on WhatsApp, or null if not configured. */
+  whatsappUrl: string | null;
 }
 
 // ─── Radio / Streaming ──────────────────────────────────────────────────────
@@ -314,9 +366,32 @@ export interface RadioUploadResponse {
 }
 
 export interface RadioCheckPayload {
+  session_id?: string;
   current_track_id?: string;
   played_track_ids?: string[];
   buffer_size?: number;
+}
+
+export interface RadioPreloadTrack {
+  id: string;
+  title: string;
+  artist?: string;
+  duration_secs?: number;
+  stream_url: string;
+  index: number;
+}
+
+export interface RadioPreloadManifest {
+  session_id: string;
+  next_check_at: number;
+  tracks: RadioPreloadTrack[];
+}
+
+export interface RadioCheckResponse {
+  action: 'continue' | 'stop';
+  manifest?: RadioPreloadManifest;
+  message?: string;
+  blocked?: boolean;
 }
 
 // ─── Bills / Remita ──────────────────────────────────────────────────────────
@@ -383,26 +458,61 @@ export interface RemitaVendResponse {
 }
 
 // ─── KYC ─────────────────────────────────────────────────────────────────────
+// Flow per spec: presign (direct-S3 PUT of a 512x512 ID image) → submit NIN/BVN
+// which starts the ₦5,000 Paystack charge backend-side (returns payment_pending;
+// the vendor is only verified once the Paystack webhook confirms the charge).
+export type KycMethod = 'nin' | 'bvn';
+
 export interface KycPresignPayload {
-  filename: string;
-  content_type: string;
+  vendor_id: string;
+  /** Image kind, e.g. national_id. The gateway reads this from the JSON body. */
+  type: string;
 }
 
 export interface KycPresignResponse {
-  upload_url: string;
+  put_url: string;
   key: string;
+  expires_in_secs?: string;
+  recommended?: string;
 }
 
 export interface KycSubmitPayload {
-  document_key: string;
-  document_type: string;
-  full_name: string;
-  bvn: string;
+  vendor_id: string;
+  /** Provide at least one of nin or bvn. */
+  nin?: string;
+  bvn?: string;
+  method?: KycMethod;
+  selfie_url?: string;
+  doc_front_url?: string;
+  doc_back_url?: string;
+  /** Optional; derived from the vendor phone if omitted. */
+  email?: string;
+}
+
+export interface KycSubmitResponse {
+  vendor_id: string;
+  nin?: string;
+  bvn?: string;
+  method?: string;
+  paystack_ref?: string;
+  paystack_status?: string;
+  /** e.g. payment_pending */
+  status: string;
+  updated_at?: string;
 }
 
 export interface KycStatusResponse {
+  vendor_id?: string;
   status: string;
+  paystack_status?: string;
+  method?: string;
+  /** Optional human-readable reason, surfaced when status is rejected. */
   reason?: string;
+}
+
+export interface KycDocumentResponse {
+  get_url: string;
+  key: string;
 }
 
 // ─── Payout ──────────────────────────────────────────────────────────────────
@@ -459,4 +569,46 @@ export interface EmbedKeyCreateResponse {
 
 export interface EmbedKeyRevokePayload {
   embed_key: string;
+}
+
+// ─── Ebooks ──────────────────────────────────────────────────────────────────
+export interface Ebook {
+  id: string;
+  title: string;
+  author: string;
+  price: number; // kobo
+  created_at?: string;
+  vendor_id?: string;
+}
+
+export interface EbookUploadPayload {
+  file: File;
+  title: string;
+  author: string;
+  price: number; // kobo
+}
+
+export interface HardCopyStatusResponse {
+  status: 'pending' | 'shipped' | 'delivered' | 'confirmed';
+  tracking_number: string;
+}
+
+export interface EbookAdvanceRequestPayload {
+  order_id: string;
+  amount: number; // kobo, max 40% of escrow
+  reason: string;
+}
+
+export interface HardCopyConfirmPayload {
+  order_id: string;
+}
+
+export interface EbookPurchasePayload {
+  ebook_id: string;
+}
+
+export interface HardCopyPurchasePayload {
+  ebook_id: string;
+  delivery_address: string;
+  delivery_phone: string;
 }

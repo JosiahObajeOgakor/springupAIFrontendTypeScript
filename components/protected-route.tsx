@@ -1,37 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
-import { setCredentials, clearAuth } from '@/lib/store/authSlice';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useAppSelector } from '@/lib/store/hooks';
+import { selectIsAuthenticated } from '@/lib/store/authSlice';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const dispatch = useAppDispatch();
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
-  const [hydrated, setHydrated] = useState(false);
+  const pathname = usePathname();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   useEffect(() => {
-    // Hydrate auth from localStorage on client
-    const token = localStorage.getItem('token');
-    const vendorId = localStorage.getItem('vendor_id');
-    const vendorRaw = localStorage.getItem('vendor');
-    if (token && vendorId) {
-      const vendor = vendorRaw ? JSON.parse(vendorRaw) : null;
-      dispatch(setCredentials({ token, vendorId, vendor }));
-    } else {
-      dispatch(clearAuth());
+    if (!isAuthenticated) {
+      if (pathname.startsWith('/admin')) {
+        router.replace('/admin/login');
+      } else {
+        router.replace('/');
+      }
     }
-    setHydrated(true);
-  }, [dispatch]);
+  }, [isAuthenticated, router, pathname]);
 
-  useEffect(() => {
-    if (hydrated && !isAuthenticated) {
-      router.replace('/vendor/login');
-    }
-  }, [hydrated, isAuthenticated, router]);
-
-  if (!hydrated || !isAuthenticated) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <img

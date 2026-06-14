@@ -8,6 +8,8 @@ import {
   uploadAdminRadioTrack,
   type RadioTrack,
 } from '@/lib/api';
+import { useAppSelector } from '@/lib/store/hooks';
+import { selectIsAuthenticated } from '@/lib/store/authSlice';
 import { AdminShell } from '@/components/admin-shell';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -38,12 +40,10 @@ export default function AdminRadioPage() {
   const [loadingTracks, setLoadingTracks] = useState(false);
   const [uploadingSingle, setUploadingSingle] = useState(false);
   const [uploadingBatch, setUploadingBatch] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
 
-  const hasToken = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return Boolean(localStorage.getItem('token'));
-  }, []);
+  const hasToken = useAppSelector(selectIsAuthenticated);
 
   const refreshTracks = useCallback(async () => {
     setLoadingTracks(true);
@@ -66,6 +66,7 @@ export default function AdminRadioPage() {
     e.preventDefault();
     if (!singleFile) { setError('Select a track before uploading.'); return; }
     setUploadingSingle(true);
+    setUploadProgress(0);
     setError('');
     try {
       await uploadAdminRadioTrack({
@@ -74,7 +75,7 @@ export default function AdminRadioPage() {
         artist: singleMeta.artist || undefined,
         album: singleMeta.album || undefined,
         genre: singleMeta.genre || undefined,
-      });
+      }, (p) => setUploadProgress(p));
       toast.success('Track uploaded successfully.');
       setSingleFile(null);
       setSingleMeta({ title: '', artist: '', album: '', genre: '' });
@@ -92,9 +93,10 @@ export default function AdminRadioPage() {
     e.preventDefault();
     if (batchFiles.length === 0) { setError('Select up to 10 tracks for batch upload.'); return; }
     setUploadingBatch(true);
+    setUploadProgress(0);
     setError('');
     try {
-      await uploadAdminRadioBatch({ files: batchFiles });
+      await uploadAdminRadioBatch({ files: batchFiles }, (p) => setUploadProgress(p));
       toast.success('Batch upload completed.');
       setBatchFiles([]);
       await refreshTracks();
@@ -167,11 +169,27 @@ export default function AdminRadioPage() {
                       />
                     </div>
                   ))}
-                  <div className="md:col-span-2 flex justify-end">
-                    <Button type="submit" className="rounded-full" disabled={uploadingSingle || !hasToken}>
-                      {uploadingSingle ? <Loader2 className="animate-spin" /> : <Upload />}
-                      Upload track
-                    </Button>
+                  <div className="md:col-span-2 space-y-3">
+                    {uploadingSingle && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground font-medium">Uploading...</span>
+                          <span className="font-semibold text-primary">{uploadProgress}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button type="submit" className="rounded-full" disabled={uploadingSingle || !hasToken}>
+                        {uploadingSingle ? <Loader2 className="animate-spin" /> : <Upload />}
+                        Upload track
+                      </Button>
+                    </div>
                   </div>
                 </form>
               </CardContent>
@@ -204,11 +222,27 @@ export default function AdminRadioPage() {
                       ))}
                     </div>
                   )}
-                  <div className="flex justify-end">
-                    <Button type="submit" className="rounded-full" disabled={uploadingBatch || !hasToken || batchFiles.length === 0}>
-                      {uploadingBatch ? <Loader2 className="animate-spin" /> : <Upload />}
-                      Upload batch
-                    </Button>
+                  <div className="space-y-3">
+                    {uploadingBatch && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground font-medium">Uploading {batchFiles.length} tracks...</span>
+                          <span className="font-semibold text-primary">{uploadProgress}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button type="submit" className="rounded-full" disabled={uploadingBatch || !hasToken || batchFiles.length === 0}>
+                        {uploadingBatch ? <Loader2 className="animate-spin" /> : <Upload />}
+                        Upload batch
+                      </Button>
+                    </div>
                   </div>
                 </form>
               </CardContent>

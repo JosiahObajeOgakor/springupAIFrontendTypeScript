@@ -3,22 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, Zap, AlertTriangle, Upload, FileText, Briefcase, BanknoteIcon, Link2, Copy, Share2, Gift, MessageCircle } from 'lucide-react';
-import { getVendorServices, checkPlan, getKycStatus, getKycPresignUrl, submitKyc, withdraw } from '@/lib/api';
-import type { VendorService, PlanCheckResponse, KycStatusResponse } from '@/lib/api';
+import { LogOut, Plus, CheckCircle, Clock, DollarSign, Wallet, AlertTriangle, Upload, FileText, Briefcase, BanknoteIcon, Copy, Share2, Gift, MessageCircle, BookOpen, PackageSearch, ArrowDownCircle, Loader2, TrendingUp } from 'lucide-react';
+import { getVendorServices, checkPlan, getKycStatus, getKycPresignUrl, submitKyc, overrideKyc, withdraw, uploadEbook, listEbooks, getHardCopyStatus, confirmHardCopyDelivery, requestEbookAdvance, createService, uploadWithProgress } from '@/lib/api';
+import type { VendorService, PlanCheckResponse, KycStatusResponse, Ebook, HardCopyStatusResponse } from '@/lib/api';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { clearAuth } from '@/lib/store/authSlice';
+import { useVendorDashboardStore } from '@/lib/stores/vendor-dashboard-store';
 import { ProtectedRoute } from '@/components/protected-route';
+import { ImageCropperDialog } from '@/components/image-cropper-dialog';
 import { Logo } from '@/components/logo';
-import { MusicPlayer } from '@/components/music-player';
+
 import { toast } from 'sonner';
 
 export default function VendorDashboard() {
-  return (
-    <ProtectedRoute>
-      <DashboardContent />
-    </ProtectedRoute>
-  );
+  return <DashboardContent />;
 }
 
 function DashboardContent() {
@@ -30,14 +28,72 @@ function DashboardContent() {
   const [plan, setPlan] = useState<PlanCheckResponse | null>(null);
   const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  // Minor UI state lives in the Zustand vendor-dashboard store.
+  const activeTab = useVendorDashboardStore((s) => s.activeTab);
+  const setActiveTab = useVendorDashboardStore((s) => s.setActiveTab);
 
-  // KYC form state
-  const [kycForm, setKycForm] = useState({ fullName: '', bvn: '', documentType: 'national_id' });
-  const [kycFile, setKycFile] = useState<File | null>(null);
-  const [kycSubmitting, setKycSubmitting] = useState(false);
-  const [kycSuccess, setKycSuccess] = useState(false);
-  const [kycError, setKycError] = useState('');
+  // Ebook state
+  const [ebooks, setEbooks] = useState<Ebook[]>([]);
+  const [ebookForm, setEbookForm] = useState({ title: '', author: '', price: '' });
+  const [ebookFile, setEbookFile] = useState<File | null>(null);
+  const [ebookUploading, setEbookUploading] = useState(false);
+  const [ebookUploadError, setEbookUploadError] = useState('');
+  const [ebookUploadSuccess, setEbookUploadSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [ebooksLoading, setEbooksLoading] = useState(false);
+
+  // Deliveries / advance state
+  const [deliveryOrderId, setDeliveryOrderId] = useState('');
+  const [deliveryStatus, setDeliveryStatus] = useState<HardCopyStatusResponse | null>(null);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
+  const [deliveryError, setDeliveryError] = useState('');
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [confirmDeliveryOrderId, setConfirmDeliveryOrderId] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+  const [confirmSuccess, setConfirmSuccess] = useState(false);
+
+  // Service creation state
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [serviceForm, setServiceForm] = useState({
+    title: '', category: '', description: '', price: '', available: true,
+    work_type: '' as '' | 'soft' | 'physical',
+    location: '', nearest_landmark: '', pickup_radius_km: '', service_hours_from: '', service_hours_to: '',
+  });
+  const [serviceSubmitting, setServiceSubmitting] = useState(false);
+  const [serviceError, setServiceError] = useState('');
+
+  // Advance request state
+  const [advanceForm, setAdvanceForm] = useState({ order_id: '', amount: '', reason: '' });
+  const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
+  const [advanceError, setAdvanceError] = useState('');
+  const [advanceSuccess, setAdvanceSuccess] = useState(false);
+
+  // KYC verification wizard — state lives in the Zustand vendor-dashboard store.
+  // Thin local adapters keep the existing call sites (setKycForm/setKycFile/…)
+  // unchanged while the source of truth is the store.
+  const kycWizard = useVendorDashboardStore((s) => s.kyc);
+  const patchKyc = useVendorDashboardStore((s) => s.patchKyc);
+  const kycForm = kycWizard;
+  const setKycForm = (patch: Partial<typeof kycWizard>) => patchKyc(patch);
+  const kycFile = kycWizard.file;
+  const setKycFile = (file: File | null) => patchKyc({ file });
+  const kycSubmitting = kycWizard.submitting;
+  const setKycSubmitting = (v: boolean) => patchKyc({ submitting: v });
+  const kycSuccess = kycWizard.success;
+  const setKycSuccess = (v: boolean) => patchKyc({ success: v });
+  const kycError = kycWizard.error;
+  const setKycError = (v: string) => patchKyc({ error: v });
+  const kycOverriding = kycWizard.overriding;
+  const setKycOverriding = (v: boolean) => patchKyc({ overriding: v });
+  const cropperOpen = kycWizard.cropperOpen;
+  const setCropperOpen = (v: boolean) => patchKyc({ cropperOpen: v });
+  const cropperImageSrc = kycWizard.cropperImageSrc;
+  const setCropperImageSrc = (v: string) => patchKyc({ cropperImageSrc: v });
+  const [isLocalDev, setIsLocalDev] = useState(false);
+
+  useEffect(() => {
+    setIsLocalDev(window.location.hostname === 'localhost');
+  }, []);
 
   // Wallet withdraw form state
   const [withdrawForm, setWithdrawForm] = useState({ amount: '', bankCode: '', accountNumber: '' });
@@ -71,11 +127,10 @@ function DashboardContent() {
           clearIdleTimers();
           setIdleWarning(false);
           dispatch(clearAuth());
-          router.push('/vendor/login');
         }
       }, 1000);
     }, 2 * 60 * 1000); // 2 minutes idle
-  }, [clearIdleTimers, dispatch, router]);
+  }, [clearIdleTimers, dispatch]);
 
   const confirmActive = useCallback(() => {
     clearIdleTimers();
@@ -97,60 +152,82 @@ function DashboardContent() {
   }, [startIdleTimer, clearIdleTimers]);
 
   useEffect(() => {
-    if (!vendorId) return;
-
     async function fetchData() {
       try {
-        const [svc, planData, kycData] = await Promise.all([
-          getVendorServices(vendorId!),
-          checkPlan(vendorId!).catch(() => null),
-          getKycStatus(vendorId!).catch(() => null),
+        const [svc, planData, kycData, ebookData] = await Promise.all([
+          vendorId ? getVendorServices(vendorId) : Promise.resolve([]),
+          vendorId ? checkPlan(vendorId).catch(() => null) : Promise.resolve(null),
+          vendorId ? getKycStatus(vendorId).catch(() => null) : Promise.resolve(null),
+          listEbooks().catch(() => []),
         ]);
         setServices(svc || []);
         setPlan(planData);
         setKyc(kycData);
+        setEbooks(ebookData);
       } catch {
-        dispatch(clearAuth());
-        router.push('/vendor/login');
+        // silently fail — no redirect
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
-  }, [vendorId, dispatch, router]);
+  }, [vendorId]);
 
   const handleLogout = () => {
     dispatch(clearAuth());
     router.push('/vendor/login');
   };
 
+  const handleDevKycApprove = async () => {
+    if (!vendorId) return;
+    setKycOverriding(true);
+    try {
+      await overrideKyc({ vendor_id: vendorId, kyc_status: 'approved' });
+      setKyc({ status: 'approved' });
+    } catch {
+      setKycError('Dev override failed — check admin token.');
+    } finally {
+      setKycOverriding(false);
+    }
+  };
+
   const handleKycSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!kycFile || !kycForm.fullName || !kycForm.bvn) {
-      setKycError('All fields are required');
+    if (!kycFile || !kycForm.idNumber) {
+      setKycError('Upload your ID and enter your NIN or BVN');
+      return;
+    }
+    if (!vendorId) {
+      setKycError('Vendor session not found. Please log in again.');
       return;
     }
     setKycError('');
     setKycSubmitting(true);
+    setUploadProgress(0);
     try {
       const presign = await getKycPresignUrl({
-        filename: kycFile.name,
-        content_type: kycFile.type,
+        vendor_id: vendorId,
+        type: kycForm.documentType,
       });
-      await fetch(presign.upload_url, {
+      await uploadWithProgress(presign.put_url, kycFile, {
         method: 'PUT',
-        body: kycFile,
         headers: { 'Content-Type': kycFile.type },
+        onProgress: (p) => setUploadProgress(p),
+        noAuth: true,
       });
-      await submitKyc({
-        document_key: presign.key,
-        document_type: kycForm.documentType,
-        full_name: kycForm.fullName,
-        bvn: kycForm.bvn,
+      // Submit starts the ₦5,000 verification charge backend-side and returns
+      // immediately with status "payment_pending"; the vendor is verified later
+      // once the Paystack webhook confirms the charge.
+      const result = await submitKyc({
+        vendor_id: vendorId,
+        method: kycForm.method,
+        ...(kycForm.method === 'bvn'
+          ? { bvn: kycForm.idNumber }
+          : { nin: kycForm.idNumber }),
       });
       setKycSuccess(true);
-      setKyc({ status: 'pending' });
+      setKyc({ vendor_id: vendorId, status: result.status || 'payment_pending', method: kycForm.method });
     } catch {
       setKycError('KYC submission failed. Please try again.');
     } finally {
@@ -158,8 +235,7 @@ function DashboardContent() {
     }
   };
 
-  const handleWithdraw = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleWithdraw = async (e: React.FormEvent) => {    e.preventDefault();
     if (!withdrawForm.amount || !withdrawForm.bankCode || !withdrawForm.accountNumber) {
       setWithdrawError('All fields are required');
       return;
@@ -178,6 +254,128 @@ function DashboardContent() {
       setWithdrawError('Withdrawal failed. Please try again.');
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  const handleAddService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!serviceForm.title || !serviceForm.category || !serviceForm.price || !serviceForm.work_type) {
+      setServiceError('Title, category, price and service type are required.');
+      return;
+    }
+    const hoursStr = serviceForm.service_hours_from && serviceForm.service_hours_to
+      ? `${serviceForm.service_hours_from} – ${serviceForm.service_hours_to}`
+      : undefined;
+    setServiceError('');
+    setServiceSubmitting(true);
+    try {
+      await createService({
+        vendor_id: vendorId ?? '',
+        title: serviceForm.title,
+        category: serviceForm.category,
+        description: serviceForm.description,
+        price: Number(serviceForm.price),
+        available: serviceForm.available,
+        work_type: serviceForm.work_type as 'soft' | 'physical',
+        location: serviceForm.location || undefined,
+        nearest_landmark: serviceForm.nearest_landmark || undefined,
+        pickup_radius_km: serviceForm.pickup_radius_km ? Number(serviceForm.pickup_radius_km) : undefined,
+        service_hours: hoursStr,
+      });
+      setShowServiceForm(false);
+      setServiceForm({ title: '', category: '', description: '', price: '', available: true, work_type: '', location: '', nearest_landmark: '', pickup_radius_km: '', service_hours_from: '', service_hours_to: '' });
+      const updated = await getVendorServices(vendorId ?? '').catch(() => services);
+      setServices(updated);
+      toast.success('Service added.');
+    } catch {
+      setServiceError('Failed to add service. Ensure your KYC is approved and you have an active plan.');
+    } finally {
+      setServiceSubmitting(false);
+    }
+  };
+
+  const handleEbookUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ebookFile || !ebookForm.title || !ebookForm.author || !ebookForm.price) {
+      setEbookUploadError('All fields including the PDF file are required.');
+      return;
+    }
+    setEbookUploadError('');
+    setEbookUploading(true);
+    setUploadProgress(0);
+    try {
+      await uploadEbook({
+        file: ebookFile,
+        title: ebookForm.title,
+        author: ebookForm.author,
+        price: Math.round(Number(ebookForm.price) * 100),
+      }, (p) => setUploadProgress(p));
+      setEbookUploadSuccess(true);
+      setEbookForm({ title: '', author: '', price: '' });
+      setEbookFile(null);
+      setEbooksLoading(true);
+      const refreshed = await listEbooks().catch(() => ebooks);
+      setEbooks(refreshed);
+      setEbooksLoading(false);
+    } catch {
+      setEbookUploadError('Upload failed. Please try again.');
+    } finally {
+      setEbookUploading(false);
+    }
+  };
+
+  const handleDeliveryLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deliveryOrderId.trim()) { setDeliveryError('Enter an order ID.'); return; }
+    setDeliveryError('');
+    setDeliveryLoading(true);
+    setDeliveryStatus(null);
+    try {
+      const status = await getHardCopyStatus(deliveryOrderId.trim());
+      setDeliveryStatus(status);
+    } catch {
+      setDeliveryError('Order not found or you do not have access.');
+    } finally {
+      setDeliveryLoading(false);
+    }
+  };
+
+  const handleConfirmDelivery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmDeliveryOrderId.trim()) { setConfirmError('Enter an order ID.'); return; }
+    setConfirmError('');
+    setConfirmingDelivery(true);
+    try {
+      await confirmHardCopyDelivery({ order_id: confirmDeliveryOrderId.trim() });
+      setConfirmSuccess(true);
+      setConfirmDeliveryOrderId('');
+    } catch {
+      setConfirmError('Confirmation failed. Please check the order ID.');
+    } finally {
+      setConfirmingDelivery(false);
+    }
+  };
+
+  const handleAdvanceRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!advanceForm.order_id || !advanceForm.amount || !advanceForm.reason) {
+      setAdvanceError('All fields are required.');
+      return;
+    }
+    setAdvanceError('');
+    setAdvanceSubmitting(true);
+    try {
+      await requestEbookAdvance({
+        order_id: advanceForm.order_id.trim(),
+        amount: Math.round(Number(advanceForm.amount) * 100),
+        reason: advanceForm.reason.trim(),
+      });
+      setAdvanceSuccess(true);
+      setAdvanceForm({ order_id: '', amount: '', reason: '' });
+    } catch {
+      setAdvanceError('Advance request failed. Please try again.');
+    } finally {
+      setAdvanceSubmitting(false);
     }
   };
 
@@ -231,7 +429,12 @@ function DashboardContent() {
                   : 'Complete your KYC verification to create services and receive payments.'}
               </p>
               <button
-                onClick={() => setActiveTab('kyc')}
+                onClick={() => {
+                  setActiveTab('kyc');
+                  setTimeout(() => {
+                    document.getElementById('kyc-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
                 className="mt-2 text-sm font-medium text-primary hover:underline"
               >
                 Complete KYC →
@@ -313,7 +516,7 @@ function DashboardContent() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 p-1 bg-secondary rounded-full overflow-x-auto no-scrollbar">
-          {['overview', 'jobs', 'wallet', 'services', 'kyc', 'referral'].map((tab) => (
+          {['overview', 'ebooks', 'transactions', 'deliveries', 'wallet', 'services', 'kyc', 'referral'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -326,14 +529,343 @@ function DashboardContent() {
           ))}
         </div>
 
-        {/* Jobs Tab */}
-        {activeTab === 'jobs' && (
-          <div className="text-center py-12">
-            <Briefcase size={48} className="mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="font-semibold text-lg mb-2">Jobs Coming Soon</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              You&apos;ll be able to view and accept job requests from customers here. Stay tuned!
-            </p>
+        {/* Ebooks Tab */}
+        {activeTab === 'ebooks' && (
+          <div className="space-y-8">
+            {/* Upload form */}
+            <div className="bg-card rounded-3xl border border-border shadow-float overflow-hidden">
+              <div className="gradient-primary px-6 py-5 text-white flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Upload E-book</h3>
+                  <p className="text-white/75 text-sm">PDF only · Price in Naira</p>
+                </div>
+              </div>
+              <div className="p-6">
+                {ebookUploadSuccess ? (
+                  <div className="text-center py-8">
+                    <CheckCircle size={44} className="text-green-500 mx-auto mb-3" />
+                    <h4 className="font-bold text-lg mb-1">E-book Uploaded!</h4>
+                    <p className="text-sm text-muted-foreground mb-5">Your book is now live in the catalog.</p>
+                    <button onClick={() => setEbookUploadSuccess(false)} className="text-sm font-medium text-primary hover:underline">Upload another</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleEbookUpload} className="space-y-5">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-medium">Book title</label>
+                        <input
+                          type="text"
+                          value={ebookForm.title}
+                          onChange={(e) => setEbookForm({ ...ebookForm, title: e.target.value })}
+                          placeholder="e.g. The Entrepreneur's Playbook"
+                          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-medium">Author</label>
+                        <input
+                          type="text"
+                          value={ebookForm.author}
+                          onChange={(e) => setEbookForm({ ...ebookForm, author: e.target.value })}
+                          placeholder="e.g. Chioma Okafor"
+                          className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium">Price (₦)</label>
+                      <input
+                        type="number"
+                        value={ebookForm.price}
+                        onChange={(e) => setEbookForm({ ...ebookForm, price: e.target.value })}
+                        placeholder="e.g. 2500"
+                        min="1"
+                        className="w-full sm:w-1/2 px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium">PDF file</label>
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-2xl cursor-pointer hover:border-primary/50 transition-colors bg-secondary/30">
+                        <Upload size={22} className="text-muted-foreground mb-2" />
+                        <span className="text-sm text-muted-foreground">
+                          {ebookFile ? ebookFile.name : 'Click to select PDF'}
+                        </span>
+                        <input type="file" className="hidden" accept=".pdf,application/pdf" onChange={(e) => setEbookFile(e.target.files?.[0] || null)} />
+                      </label>
+                    </div>
+                    {ebookUploadError && <p className="text-sm text-destructive" role="alert">{ebookUploadError}</p>}
+                    {ebookUploading && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground font-medium">Uploading PDF...</span>
+                          <span className="font-semibold text-primary">{uploadProgress}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={ebookUploading}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-elevated"
+                    >
+                      {ebookUploading ? <><Loader2 size={16} className="animate-spin" /> Uploading...</> : <><Upload size={16} /> Upload E-book</>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* Ebook catalog */}
+            <div>
+              <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
+                <BookOpen size={16} className="text-primary" /> Your catalog ({ebooks.length})
+              </h3>
+              {ebooksLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm py-6"><Loader2 size={16} className="animate-spin" /> Loading...</div>
+              ) : ebooks.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <BookOpen size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No e-books uploaded yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-secondary/50 text-muted-foreground">
+                      <tr>
+                        <th className="px-5 py-3 text-left font-medium">Title</th>
+                        <th className="px-5 py-3 text-left font-medium">Author</th>
+                        <th className="px-5 py-3 text-right font-medium">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-card">
+                      {ebooks.map((book) => (
+                        <tr key={book.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="px-5 py-3.5 font-medium">{book.title}</td>
+                          <td className="px-5 py-3.5 text-muted-foreground">{book.author}</td>
+                          <td className="px-5 py-3.5 text-right font-semibold text-primary">₦{(book.price / 100).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Transactions Tab */}
+        {activeTab === 'transactions' && (
+          <div className="space-y-8">
+            <div>
+              <h3 className="font-semibold text-base mb-1 flex items-center gap-2">
+                <TrendingUp size={16} className="text-primary" /> E-book Sales
+              </h3>
+              <p className="text-sm text-muted-foreground mb-5">Your uploaded books and their pricing. Sales are released after buyer delivery confirmation.</p>
+              {ebooks.length === 0 ? (
+                <div className="text-center py-12 bg-card rounded-2xl border border-border text-muted-foreground">
+                  <TrendingUp size={40} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No ebooks yet. Upload your first book to start earning.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-secondary/50 text-muted-foreground">
+                      <tr>
+                        <th className="px-5 py-3 text-left font-medium">Title</th>
+                        <th className="px-5 py-3 text-left font-medium">Author</th>
+                        <th className="px-5 py-3 text-right font-medium">List Price</th>
+                        <th className="px-5 py-3 text-right font-medium">Your Earn (est.)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-card">
+                      {ebooks.map((book) => (
+                        <tr key={book.id} className="hover:bg-secondary/30 transition-colors">
+                          <td className="px-5 py-3.5 font-medium">{book.title}</td>
+                          <td className="px-5 py-3.5 text-muted-foreground">{book.author}</td>
+                          <td className="px-5 py-3.5 text-right">₦{(book.price / 100).toLocaleString()}</td>
+                          <td className="px-5 py-3.5 text-right font-semibold text-green-600 dark:text-green-400">
+                            ₦{((book.price / 100) * 0.9).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Advance request */}
+            <div className="bg-card rounded-3xl border border-border shadow-float overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <ArrowDownCircle size={18} className="text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Request Advance</h4>
+                  <p className="text-xs text-muted-foreground">Up to 40% of pending escrow · reviewed within 3 working days</p>
+                </div>
+              </div>
+              <div className="p-6">
+                {advanceSuccess ? (
+                  <div className="text-center py-6">
+                    <CheckCircle size={40} className="text-green-500 mx-auto mb-3" />
+                    <h4 className="font-bold mb-1">Advance Request Submitted</h4>
+                    <p className="text-sm text-muted-foreground mb-4">You&apos;ll hear back within 3 working days.</p>
+                    <button onClick={() => setAdvanceSuccess(false)} className="text-sm text-primary hover:underline font-medium">Submit another</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleAdvanceRequest} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Order ID</label>
+                      <input
+                        type="text"
+                        value={advanceForm.order_id}
+                        onChange={(e) => setAdvanceForm({ ...advanceForm, order_id: e.target.value })}
+                        placeholder="Order ID for the hard copy sale"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Advance amount (₦) <span className="text-muted-foreground font-normal">— max 40% of escrow</span></label>
+                      <input
+                        type="number"
+                        value={advanceForm.amount}
+                        onChange={(e) => setAdvanceForm({ ...advanceForm, amount: e.target.value })}
+                        placeholder="e.g. 1000"
+                        min="1"
+                        className="w-full sm:w-1/2 px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Reason</label>
+                      <textarea
+                        value={advanceForm.reason}
+                        onChange={(e) => setAdvanceForm({ ...advanceForm, reason: e.target.value })}
+                        placeholder="Brief reason for the advance request..."
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm resize-none"
+                      />
+                    </div>
+                    {advanceError && <p className="text-sm text-destructive">{advanceError}</p>}
+                    <button
+                      type="submit"
+                      disabled={advanceSubmitting}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-elevated"
+                    >
+                      {advanceSubmitting ? <><Loader2 size={14} className="animate-spin" /> Submitting...</> : <><ArrowDownCircle size={14} /> Submit Request</>}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deliveries Tab */}
+        {activeTab === 'deliveries' && (
+          <div className="space-y-8 max-w-2xl">
+            {/* Track delivery */}
+            <div className="bg-card rounded-3xl border border-border shadow-float overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <PackageSearch size={18} className="text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Track Hard Copy Delivery</h4>
+                  <p className="text-xs text-muted-foreground">Enter an order ID to check status</p>
+                </div>
+              </div>
+              <div className="p-6 space-y-5">
+                <form onSubmit={handleDeliveryLookup} className="flex gap-3">
+                  <input
+                    type="text"
+                    value={deliveryOrderId}
+                    onChange={(e) => setDeliveryOrderId(e.target.value)}
+                    placeholder="Paste order ID..."
+                    className="flex-1 px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                  />
+                  <button
+                    type="submit"
+                    disabled={deliveryLoading}
+                    className="px-5 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {deliveryLoading ? <Loader2 size={15} className="animate-spin" /> : <PackageSearch size={15} />}
+                    Check
+                  </button>
+                </form>
+                {deliveryError && <p className="text-sm text-destructive">{deliveryError}</p>}
+                {deliveryStatus && (
+                  <div className="rounded-2xl bg-secondary/50 border border-border p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Status</span>
+                      <span className={`text-sm font-semibold capitalize px-3 py-1 rounded-full ${
+                        deliveryStatus.status === 'delivered' || deliveryStatus.status === 'confirmed'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : deliveryStatus.status === 'shipped'
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                      }`}>{deliveryStatus.status}</span>
+                    </div>
+                    {deliveryStatus.tracking_number && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Tracking #</span>
+                        <span className="text-sm font-mono font-medium">{deliveryStatus.tracking_number}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Confirm delivery (buyer side) */}
+            <div className="bg-card rounded-3xl border border-border shadow-float overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Confirm Delivery Received</h4>
+                  <p className="text-xs text-muted-foreground">Buyer confirms receipt — releases escrow to vendor immediately</p>
+                </div>
+              </div>
+              <div className="p-6">
+                {confirmSuccess ? (
+                  <div className="text-center py-6">
+                    <CheckCircle size={40} className="text-green-500 mx-auto mb-3" />
+                    <h4 className="font-bold mb-1">Delivery Confirmed</h4>
+                    <p className="text-sm text-muted-foreground mb-4">Escrow has been released to the vendor.</p>
+                    <button onClick={() => setConfirmSuccess(false)} className="text-sm text-primary hover:underline font-medium">Confirm another</button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleConfirmDelivery} className="flex gap-3">
+                    <input
+                      type="text"
+                      value={confirmDeliveryOrderId}
+                      onChange={(e) => setConfirmDeliveryOrderId(e.target.value)}
+                      placeholder="Order ID to confirm..."
+                      className="flex-1 px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={confirmingDelivery}
+                      className="px-5 py-3 bg-green-600 text-white rounded-xl font-semibold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {confirmingDelivery ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+                      Confirm
+                    </button>
+                  </form>
+                )}
+                {confirmError && <p className="text-sm text-destructive mt-3">{confirmError}</p>}
+                <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
+                  If a buyer has not confirmed within 48 hours of the shipped status, escrow is auto-released.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -443,41 +975,306 @@ function DashboardContent() {
 
         {/* Services Tab */}
         {activeTab === 'services' && (
-          <div className="space-y-4">
-            {services.length === 0 && (
-              <p className="text-sm text-muted-foreground">No services yet. Add your first service below.</p>
-            )}
+          <div className="space-y-4 max-w-2xl">
             {services.map((service) => (
-              <div key={service.id} className="bg-card rounded-2xl p-6 border border-border shadow-sm flex items-center justify-between hover:shadow-elevated transition-shadow">
-                <div>
-                  <h4 className="font-semibold">{service.title}</h4>
-                  <p className="text-sm text-muted-foreground">₦{service.price.toLocaleString()}</p>
-                </div>
-                <div className={`w-10 h-6 rounded-full p-0.5 transition-colors ${service.available ? 'bg-primary' : 'bg-border'}`}>
-                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${service.available ? 'translate-x-4' : 'translate-x-0'}`} />
+              <div key={service.id} className="bg-card rounded-2xl p-5 border border-border shadow-sm hover:shadow-elevated transition-shadow">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <h4 className="font-semibold truncate">{service.title}</h4>
+                      {(service as any).work_type && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          (service as any).work_type === 'soft'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                        }`}>
+                          {(service as any).work_type === 'soft' ? '💻 Soft / Remote' : '🔧 Physical'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{service.category || 'General'} · ₦{service.price.toLocaleString()}</p>
+                    {(service as any).location && (
+                      <p className="text-xs text-muted-foreground mt-0.5">📍 {(service as any).location}{(service as any).nearest_landmark ? ` · near ${(service as any).nearest_landmark}` : ''}</p>
+                    )}
+                    {(service as any).pickup_radius_km && (
+                      <p className="text-xs text-muted-foreground mt-0.5">🚗 Within {(service as any).pickup_radius_km} km</p>
+                    )}
+                    {(service as any).service_hours && (
+                      <p className="text-xs text-muted-foreground mt-0.5">🕐 {(service as any).service_hours}</p>
+                    )}
+                    {service.description && <p className="text-sm text-muted-foreground mt-1.5 line-clamp-1">{service.description}</p>}
+                  </div>
+                  <div className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${service.available ? 'bg-primary' : 'bg-border'}`}>
+                    <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${service.available ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
                 </div>
               </div>
             ))}
-            <button className="w-full px-4 py-3.5 border-2 border-dashed border-border text-muted-foreground rounded-2xl font-medium hover:border-primary hover:text-primary transition inline-flex items-center justify-center gap-2">
-              <Plus size={18} /> Add New Service
-            </button>
+
+            {services.length === 0 && !showServiceForm && (
+              <div className="text-center py-10 text-muted-foreground">
+                <Briefcase size={40} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No services yet. Add your first service below.</p>
+              </div>
+            )}
+
+            {showServiceForm ? (
+              <div className="bg-card rounded-3xl border border-border shadow-float overflow-hidden">
+                <div className="gradient-primary px-5 py-4 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
+                      <Plus size={16} />
+                    </div>
+                    <span className="font-semibold">New Service</span>
+                  </div>
+                  <button onClick={() => { setShowServiceForm(false); setServiceError(''); }} className="text-white/70 hover:text-white transition text-xl leading-none">×</button>
+                </div>
+                <form onSubmit={handleAddService} className="p-5 space-y-4">
+                  {/* Title */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Service title <span className="text-destructive">*</span></label>
+                    <input
+                      type="text"
+                      value={serviceForm.title}
+                      onChange={(e) => setServiceForm({ ...serviceForm, title: e.target.value })}
+                      placeholder="e.g. House Cleaning"
+                      className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Category <span className="text-destructive">*</span></label>
+                    <select
+                      value={serviceForm.category}
+                      onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                    >
+                      <option value="">Select a category</option>
+                      <optgroup label="Home Services">
+                        <option value="Cleaning">Cleaning</option>
+                        <option value="Plumbing">Plumbing</option>
+                        <option value="Electrical">Electrical</option>
+                        <option value="Painting">Painting</option>
+                        <option value="Carpentry">Carpentry</option>
+                        <option value="Fumigation">Fumigation / Pest Control</option>
+                        <option value="Air Conditioning">Air Conditioning Repair</option>
+                        <option value="Generator Repair">Generator Repair</option>
+                        <option value="Tiling">Tiling</option>
+                        <option value="Home Security">Home Security Installation</option>
+                      </optgroup>
+                      <optgroup label="Beauty & Personal Care">
+                        <option value="Haircut">Haircut / Barbing</option>
+                        <option value="Braiding">Hair Braiding / Styling</option>
+                        <option value="Makeup">Makeup Artist</option>
+                        <option value="Manicure & Pedicure">Manicure &amp; Pedicure</option>
+                        <option value="Massage">Massage Therapy</option>
+                        <option value="Skincare">Skincare / Facial</option>
+                      </optgroup>
+                      <optgroup label="Logistics & Transport">
+                        <option value="Dispatch">Dispatch / Delivery</option>
+                        <option value="Moving">House Moving / Relocation</option>
+                        <option value="Ride">Ride / Chauffeur</option>
+                        <option value="Errand">Errand Running</option>
+                      </optgroup>
+                      <optgroup label="Tech & Digital">
+                        <option value="Phone Repair">Phone / Gadget Repair</option>
+                        <option value="Laptop Repair">Laptop Repair</option>
+                        <option value="IT Support">IT Support</option>
+                        <option value="Graphic Design">Graphic Design</option>
+                        <option value="Web Design">Web Design</option>
+                        <option value="Social Media">Social Media Management</option>
+                        <option value="Photography">Photography</option>
+                        <option value="Videography">Videography</option>
+                      </optgroup>
+                      <optgroup label="Education & Training">
+                        <option value="Tutoring">Private Tutoring</option>
+                        <option value="Driving Lessons">Driving Lessons</option>
+                        <option value="Fitness Training">Fitness / Personal Training</option>
+                        <option value="Cooking Classes">Cooking Classes</option>
+                      </optgroup>
+                      <optgroup label="Food & Catering">
+                        <option value="Catering">Catering / Events Food</option>
+                        <option value="Meal Prep">Meal Prep / Delivery</option>
+                        <option value="Baking">Baking / Pastry</option>
+                      </optgroup>
+                      <optgroup label="Other">
+                        <option value="Laundry">Laundry / Dry Cleaning</option>
+                        <option value="Tailoring">Tailoring / Fashion</option>
+                        <option value="Event Planning">Event Planning</option>
+                        <option value="Security">Security Guard</option>
+                        <option value="Other">Other</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* Service type */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Type of service <span className="text-destructive">*</span></label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { value: 'soft', label: 'Soft / Remote', desc: 'Digital, online or can be done from anywhere', icon: '💻' },
+                        { value: 'physical', label: 'Physical / On-site', desc: 'Requires in-person attendance at a location', icon: '🔧' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setServiceForm({ ...serviceForm, work_type: opt.value as 'soft' | 'physical' })}
+                          className={`flex flex-col items-start gap-1 p-3.5 rounded-xl border-2 text-left transition-all ${
+                            serviceForm.work_type === opt.value
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/40'
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{opt.icon}</span>
+                          <span className="text-sm font-semibold mt-1">{opt.label}</span>
+                          <span className="text-xs text-muted-foreground leading-snug">{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
+                    <textarea
+                      value={serviceForm.description}
+                      onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+                      placeholder="Briefly describe what you offer..."
+                      rows={2}
+                      className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm resize-none"
+                    />
+                  </div>
+
+                  {/* Location + nearest landmark */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Your location</label>
+                      <input
+                        type="text"
+                        value={serviceForm.location}
+                        onChange={(e) => setServiceForm({ ...serviceForm, location: e.target.value })}
+                        placeholder="e.g. Lekki Phase 1, Lagos"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Nearest landmark</label>
+                      <input
+                        type="text"
+                        value={serviceForm.nearest_landmark}
+                        onChange={(e) => setServiceForm({ ...serviceForm, nearest_landmark: e.target.value })}
+                        placeholder="e.g. Shoprite, Admiralty Way"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Pickup radius + service hours */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Closest pickup radius</label>
+                      <select
+                        value={serviceForm.pickup_radius_km}
+                        onChange={(e) => setServiceForm({ ...serviceForm, pickup_radius_km: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      >
+                        <option value="">Select radius</option>
+                        <option value="1">Within 1 km</option>
+                        <option value="2">Within 2 km</option>
+                        <option value="3">Within 3 km</option>
+                        <option value="4">Within 4 km</option>
+                        <option value="5">Within 5 km</option>
+                        <option value="10">Within 10 km (max)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Service hours</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={serviceForm.service_hours_from}
+                          onChange={(e) => setServiceForm({ ...serviceForm, service_hours_from: e.target.value })}
+                          className="flex-1 px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                        />
+                        <span className="text-muted-foreground text-xs font-medium shrink-0">to</span>
+                        <input
+                          type="time"
+                          value={serviceForm.service_hours_to}
+                          onChange={(e) => setServiceForm({ ...serviceForm, service_hours_to: e.target.value })}
+                          className="flex-1 px-3 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price + availability */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Price (₦) <span className="text-destructive">*</span></label>
+                      <input
+                        type="number"
+                        value={serviceForm.price}
+                        onChange={(e) => setServiceForm({ ...serviceForm, price: e.target.value })}
+                        placeholder="e.g. 5000"
+                        min="1"
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Availability</label>
+                      <select
+                        value={serviceForm.available ? 'true' : 'false'}
+                        onChange={(e) => setServiceForm({ ...serviceForm, available: e.target.value === 'true' })}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all text-sm"
+                      >
+                        <option value="true">Available now</option>
+                        <option value="false">Not available</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {serviceError && <p className="text-sm text-destructive">{serviceError}</p>}
+
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="submit"
+                      disabled={serviceSubmitting}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold text-sm hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 shadow-elevated"
+                    >
+                      {serviceSubmitting ? <><Loader2 size={14} className="animate-spin" /> Adding...</> : <><Plus size={14} /> Add Service</>}
+                    </button>
+                    <button type="button" onClick={() => { setShowServiceForm(false); setServiceError(''); }} className="px-5 py-3 rounded-full border border-border text-sm font-medium hover:bg-secondary transition">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowServiceForm(true)}
+                className="w-full px-4 py-3.5 border-2 border-dashed border-border text-muted-foreground rounded-2xl font-medium hover:border-primary hover:text-primary transition inline-flex items-center justify-center gap-2"
+              >
+                <Plus size={18} /> Add New Service
+              </button>
+            )}
           </div>
         )}
 
         {/* KYC Tab */}
         {activeTab === 'kyc' && (
-          <div className="max-w-lg">
+          <div id="kyc-section" className="max-w-lg">
             {kyc?.status === 'approved' ? (
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 text-center">
                 <CheckCircle size={40} className="text-green-600 mx-auto mb-3" />
                 <h3 className="font-bold text-lg mb-1">KYC Verified</h3>
                 <p className="text-sm text-muted-foreground">Your identity has been verified. You can now create services and receive payments.</p>
               </div>
-            ) : kyc?.status === 'pending' || kycSuccess ? (
+            ) : kyc?.status === 'pending' || kyc?.status === 'payment_pending' || kycSuccess ? (
               <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-6 text-center">
                 <Clock size={40} className="text-yellow-600 mx-auto mb-3" />
-                <h3 className="font-bold text-lg mb-1">KYC Under Review</h3>
-                <p className="text-sm text-muted-foreground">Your documents are being reviewed. This usually takes 24-48 hours.</p>
+                <h3 className="font-bold text-lg mb-1">KYC Verification Pending</h3>
+                <p className="text-sm text-muted-foreground">We&apos;ve received your details and started the ₦5,000 verification payment. Your account is verified automatically once the payment is confirmed.</p>
               </div>
             ) : (
               <div className="bg-card rounded-2xl p-6 border border-border shadow-float">
@@ -487,22 +1284,24 @@ function DashboardContent() {
                 </div>
                 <form onSubmit={handleKycSubmit} className="space-y-5">
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">Full Name (as on ID)</label>
-                    <input
-                      type="text"
-                      value={kycForm.fullName}
-                      onChange={(e) => setKycForm({ ...kycForm, fullName: e.target.value })}
-                      placeholder="John Doe"
+                    <label className="block text-sm font-medium mb-1.5">Verification Method</label>
+                    <select
+                      value={kycForm.method}
+                      onChange={(e) => setKycForm({ ...kycForm, method: e.target.value as 'nin' | 'bvn' })}
                       className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-                    />
+                    >
+                      <option value="nin">NIN (National Identification Number)</option>
+                      <option value="bvn">BVN (Bank Verification Number)</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">BVN</label>
+                    <label className="block text-sm font-medium mb-1.5">{kycForm.method === 'bvn' ? 'BVN' : 'NIN'}</label>
                     <input
                       type="text"
-                      value={kycForm.bvn}
-                      onChange={(e) => setKycForm({ ...kycForm, bvn: e.target.value })}
-                      placeholder="22012345678"
+                      inputMode="numeric"
+                      value={kycForm.idNumber}
+                      onChange={(e) => setKycForm({ ...kycForm, idNumber: e.target.value })}
+                      placeholder={kycForm.method === 'bvn' ? '22012345678' : '12345678901'}
                       maxLength={11}
                       className="w-full px-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                     />
@@ -531,11 +1330,33 @@ function DashboardContent() {
                         type="file"
                         className="hidden"
                         accept="image/*,.pdf"
-                        onChange={(e) => setKycFile(e.target.files?.[0] || null)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.type.startsWith('image/')) {
+                            const url = URL.createObjectURL(file);
+                            setCropperImageSrc(url);
+                            setCropperOpen(true);
+                          } else {
+                            setKycFile(file);
+                          }
+                          e.target.value = '';
+                        }}
                       />
                     </label>
                   </div>
                   {kycError && <p className="text-red-600 text-sm" role="alert">{kycError}</p>}
+                  {kycSubmitting && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground font-medium">Uploading document...</span>
+                        <span className="font-semibold text-primary">{uploadProgress}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                        <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
                   <button
                     type="submit"
                     disabled={kycSubmitting}
@@ -558,6 +1379,21 @@ function DashboardContent() {
                 </form>
               </div>
             )}
+            <ImageCropperDialog
+              open={cropperOpen}
+              imageSrc={cropperImageSrc}
+              onCrop={(file) => {
+                setKycFile(file);
+                setCropperOpen(false);
+                URL.revokeObjectURL(cropperImageSrc);
+                setCropperImageSrc('');
+              }}
+              onCancel={() => {
+                setCropperOpen(false);
+                URL.revokeObjectURL(cropperImageSrc);
+                setCropperImageSrc('');
+              }}
+            />
           </div>
         )}
 
@@ -693,8 +1529,6 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* Floating Music Player */}
-      <MusicPlayer />
     </div>
   );
 }

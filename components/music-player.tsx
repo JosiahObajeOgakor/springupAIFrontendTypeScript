@@ -1,17 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Loader2,
-  Music2,
-  Pause,
-  Play,
-  Radio,
-  SkipForward,
-  Upload,
-  Volume2,
-  X,
-} from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronUp, Loader2, Music2, Pause, Play, Radio, Shuffle, Volume2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   checkRadioBuffer,
@@ -20,57 +11,45 @@ import {
   streamRadioTrack,
   type RadioTrack,
 } from '@/lib/api';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useAppSelector } from '@/lib/store/hooks';
+import { selectIsAuthenticated } from '@/lib/store/authSlice';
 
-function formatDuration(track: RadioTrack) {
-  const rawSeconds = Math.round(track.duration_seconds ?? track.duration ?? 0);
-  if (!rawSeconds) return 'Live';
-
-  const minutes = Math.floor(rawSeconds / 60);
-  const seconds = rawSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+function formatTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+type PlayerView = 'closed' | 'mini' | 'full';
 
 export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const playedTrackIdsRef = useRef<string[]>([]);
   const hasFetchedRef = useRef(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [hasToken, setHasToken] = useState(false);
+  const hasEverPlayed = useRef(false);
+  const [view, setView] = useState<PlayerView>('closed');
+  const [mounted, setMounted] = useState(false);
+  const hasToken = useAppSelector(selectIsAuthenticated);
   const [tracks, setTracks] = useState<RadioTrack[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingQueue, setIsLoadingQueue] = useState(false);
   const [isLoadingTrack, setIsLoadingTrack] = useState(false);
-  const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const currentTrack = tracks[currentIndex] ?? null;
+
+  useEffect(() => setMounted(true), []);
 
   const releaseObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
-  }, []);
-
-  useEffect(() => {
-    setHasToken(Boolean(localStorage.getItem('token')));
   }, []);
 
   useEffect(() => {
@@ -81,12 +60,14 @@ export function MusicPlayer() {
       setCurrentTime(audio.currentTime);
       if (audio.duration > 0) {
         setProgress((audio.currentTime / audio.duration) * 100);
-      } else {
-        setProgress(0);
+        setDuration(audio.duration);
       }
     };
 
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => {
+      setIsPlaying(true);
+      hasEverPlayed.current = true;
+    };
     const onPause = () => setIsPlaying(false);
     const onEnded = async () => {
       if (currentTrack) {
@@ -98,30 +79,25 @@ export function MusicPlayer() {
 
       if (currentIndex >= tracks.length - 2 && currentTrack) {
         try {
-          const nextBatch = await checkRadioBuffer({
+          const res = await checkRadioBuffer({
             current_track_id: currentTrack.id,
             played_track_ids: playedTrackIdsRef.current,
             buffer_size: 8,
           });
-
+          const nextBatch = res.manifest?.tracks ?? [];
           if (nextBatch.length > 0) {
             setTracks((prev) => {
-              const knownIds = new Set(prev.map((track) => track.id));
-              const freshTracks = nextBatch.filter((track) => !knownIds.has(track.id));
-              return freshTracks.length > 0 ? [...prev, ...freshTracks] : prev;
+              const knownIds = new Set(prev.map((t) => t.id));
+              const fresh = nextBatch.filter((t: { id: string }) => !knownIds.has(t.id));
+              return fresh.length > 0 ? [...prev, ...fresh as unknown as RadioTrack[]] : prev;
             });
           }
         } catch {
-          toast.error('Unable to refresh the radio queue right now.');
+          toast.error('Unable to refresh the radio queue.');
         }
       }
 
-      setCurrentIndex((prev) => {
-        if (prev < tracks.length - 1) {
-          return prev + 1;
-        }
-        return prev;
-      });
+      setCurrentIndex((prev) => (prev < tracks.length - 1 ? prev + 1 : 0));
     };
 
     audio.addEventListener('timeupdate', syncTime);
@@ -137,64 +113,46 @@ export function MusicPlayer() {
     };
   }, [currentIndex, currentTrack, tracks.length]);
 
-  useEffect(() => {
-    return () => {
-      releaseObjectUrl();
-    };
-  }, [releaseObjectUrl]);
+  useEffect(() => () => releaseObjectUrl(), [releaseObjectUrl]);
 
   const fetchInitialQueue = useCallback(async () => {
     if (!hasToken || hasFetchedRef.current) return;
-
     setIsLoadingQueue(true);
-    setError('');
-
     try {
-      const initialTracks = await preloadRadioTracks();
-      setTracks(initialTracks);
+      const manifest = await preloadRadioTracks();
+      setTracks(manifest.tracks as unknown as RadioTrack[]);
       setCurrentIndex(0);
       hasFetchedRef.current = true;
     } catch (err) {
-      setError('Unable to preload radio tracks.');
-      if (err instanceof Error) {
-        toast.error(err.message);
-      }
+      if (err instanceof Error) toast.error(err.message);
     } finally {
       setIsLoadingQueue(false);
     }
   }, [hasToken]);
 
   useEffect(() => {
-    if (isOpen) {
-      void fetchInitialQueue();
-    }
-  }, [fetchInitialQueue, isOpen]);
+    if (view !== 'closed') void fetchInitialQueue();
+  }, [fetchInitialQueue, view]);
 
   const loadTrack = useCallback(
     async (track: RadioTrack) => {
       const audio = audioRef.current;
       if (!audio) return;
-
       setIsLoadingTrack(true);
-      setError('');
-
       try {
         releaseObjectUrl();
         const blob = await streamRadioTrack(track.id);
-        const objectUrl = URL.createObjectURL(blob);
-        objectUrlRef.current = objectUrl;
-        audio.src = objectUrl;
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        audio.src = url;
         await audio.play();
-      } catch (err) {
+      } catch {
         const directUrl = track.stream_url ?? getRadioStreamUrl(track.id);
         audio.src = directUrl;
         try {
           await audio.play();
         } catch {
-          setError('Unable to stream this track right now.');
-          if (err instanceof Error) {
-            toast.error(err.message);
-          }
+          toast.error('Unable to stream this track.');
         }
       } finally {
         setIsLoadingTrack(false);
@@ -203,257 +161,221 @@ export function MusicPlayer() {
     [releaseObjectUrl]
   );
 
-  const handleSelectTrack = useCallback(
-    async (index: number) => {
-      setCurrentIndex(index);
-      const track = tracks[index];
-      if (!track) return;
-      await loadTrack(track);
-    },
-    [loadTrack, tracks]
-  );
-
   const handleTogglePlayback = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (!currentTrack && tracks.length > 0) {
-      await handleSelectTrack(currentIndex);
+      setCurrentIndex(0);
+      await loadTrack(tracks[0]);
       return;
     }
 
     if (audio.src) {
-      if (audio.paused) {
-        await audio.play();
-      } else {
-        audio.pause();
-      }
+      if (audio.paused) await audio.play();
+      else audio.pause();
       return;
     }
 
-    if (currentTrack) {
-      await loadTrack(currentTrack);
-    }
-  }, [currentIndex, currentTrack, handleSelectTrack, loadTrack, tracks.length]);
+    if (currentTrack) await loadTrack(currentTrack);
+  }, [currentTrack, loadTrack, tracks]);
 
-  const handleNextTrack = useCallback(async () => {
-    const nextIndex = currentIndex + 1;
-    if (nextIndex >= tracks.length) {
-      toast('No more buffered tracks yet.', {
-        description: 'The radio queue will refill automatically as playback continues.',
-      });
-      return;
+  useEffect(() => {
+    if (currentTrack && audioRef.current && !audioRef.current.src) {
+      void loadTrack(currentTrack);
     }
-
-    await handleSelectTrack(nextIndex);
-  }, [currentIndex, handleSelectTrack, tracks.length]);
+  }, [currentIndex]);
 
   const panelLabel = useMemo(() => {
     if (!currentTrack) return 'SpringUpAI Radio';
     return currentTrack.artist
-      ? `${currentTrack.title} • ${currentTrack.artist}`
+      ? `${currentTrack.title} — ${currentTrack.artist}`
       : currentTrack.title;
   }, [currentTrack]);
 
+  const fullPanel =
+    mounted && view === 'full'
+      ? createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[998] bg-black/40 backdrop-blur-sm"
+              onClick={() => setView('mini')}
+            />
+            <div className="fixed z-[999] inset-x-3 bottom-24 sm:inset-x-auto sm:bottom-24 sm:right-4 sm:w-[22rem]">
+              <div className="rounded-3xl border border-border bg-gradient-to-b from-[#1a1a2e] to-[#16213e] text-white shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300">
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setView('mini')}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    title="Minimize"
+                  >
+                    <Music2 size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView('closed')}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    title="Close"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="pt-12 pb-5 flex flex-col items-center px-6">
+                  <div
+                    className={cn(
+                      'w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-primary/60 to-purple-600/60 flex items-center justify-center shadow-lg border-4 border-white/10',
+                      isPlaying && 'animate-[spin_8s_linear_infinite]'
+                    )}
+                  >
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#1a1a2e] flex items-center justify-center">
+                      <Music2 size={24} className="text-white/80" />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 text-center w-full">
+                    <h3 className="text-base sm:text-lg font-bold truncate px-2">
+                      {currentTrack?.title ?? 'SpringUpAI Radio'}
+                    </h3>
+                    <p className="text-sm text-white/60 mt-1 truncate px-2">
+                      {currentTrack?.artist ?? 'Tap play to start streaming'}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1.5 text-xs text-green-400 font-medium">
+                    <Shuffle size={12} />
+                    <span>Shuffle</span>
+                  </div>
+                </div>
+
+                <div className="px-6 pb-2">
+                  <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-1.5 text-[10px] text-white/40 font-medium">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{duration > 0 ? formatTime(duration) : '--:--'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-4 pb-7 pt-2">
+                  {!hasToken ? (
+                    <div className="text-center px-6 pb-4">
+                      <p className="text-sm text-white/60 mb-3">Sign in to start listening</p>
+                      <a
+                        href="/vendor/login"
+                        className="inline-block px-5 py-2.5 rounded-full bg-primary text-sm font-semibold hover:scale-105 transition-transform"
+                      >
+                        Sign In
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <Volume2 size={18} className="text-white/40" />
+                      <button
+                        type="button"
+                        onClick={() => void handleTogglePlayback()}
+                        disabled={isLoadingQueue || isLoadingTrack || !hasToken}
+                        className={cn(
+                          'w-14 h-14 rounded-full flex items-center justify-center transition-all',
+                          'bg-white text-[#1a1a2e] hover:scale-110 active:scale-95 disabled:opacity-40 disabled:hover:scale-100',
+                          isLoadingTrack && 'animate-pulse'
+                        )}
+                      >
+                        {isLoadingTrack || isLoadingQueue ? (
+                          <Loader2 size={24} className="animate-spin" />
+                        ) : isPlaying ? (
+                          <Pause size={24} fill="currentColor" />
+                        ) : (
+                          <Play size={24} fill="currentColor" className="ml-0.5" />
+                        )}
+                      </button>
+                      <Radio size={18} className="text-white/40" />
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>,
+          document.body
+        )
+      : null;
+
   return (
     <>
-      <audio ref={audioRef} preload="metadata" />
+      {/* Audio element always in DOM */}
+      <audio ref={audioRef} preload="metadata" className="hidden" />
 
-      {isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]" onClick={() => setIsOpen(false)} />
+      {fullPanel}
+
+      {/* Mini bubble with progress ring */}
+      {view === 'mini' && (
+        <div className="relative group animate-[bubble-float_3s_ease-in-out_0.5s_infinite]">
+          <svg className="absolute inset-0 w-14 h-14 -rotate-90 pointer-events-none" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="24" fill="none" stroke="currentColor" strokeWidth="3" className="text-white/10" />
+            <circle
+              cx="28" cy="28" r="24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeDasharray={`${2 * Math.PI * 24}`}
+              strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress / 100)}`}
+              className="text-primary transition-all duration-300"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <button
+            type="button"
+            onClick={() => void handleTogglePlayback()}
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-2 border-primary/30 shadow-[0_0_20px_rgba(var(--color-primary),0.3)] flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+            aria-label={panelLabel}
+          >
+            {isLoadingTrack || isLoadingQueue ? (
+              <Loader2 size={20} className="animate-spin text-white" />
+            ) : isPlaying ? (
+              <Pause size={18} className="text-white" fill="white" />
+            ) : (
+              <Play size={18} className="text-white ml-0.5" fill="white" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView('full')}
+            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity"
+          >
+            <ChevronUp size={12} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setView('closed')}
+            className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity"
+          >
+            <X size={10} />
+          </button>
+        </div>
       )}
 
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {isOpen && (
-          <Card className="w-[min(28rem,calc(100vw-2rem))] rounded-3xl border-border shadow-float overflow-hidden">
-            <CardHeader className="gradient-primary text-white">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <Badge variant="secondary" className="bg-white/15 text-white border-white/10 mb-3">
-                    <Radio className="size-3" /> Live radio
-                  </Badge>
-                  <CardTitle className="text-xl">SpringUpAI Radio</CardTitle>
-                  <CardDescription className="text-white/75 mt-1">
-                    {hasToken
-                      ? 'Users and vendors can stream the latest uploaded tracks in the browser.'
-                      : 'Sign in as a user, vendor, or admin to access the radio stream.'}
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="bg-white/15 text-white hover:bg-white/20"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X />
-                </Button>
-              </div>
-            </CardHeader>
-
-            <CardContent className="px-0 pb-0">
-              {!hasToken ? (
-                <div className="p-6 space-y-4">
-                  <Alert>
-                    <Upload className="size-4" />
-                    <AlertTitle>Authentication required</AlertTitle>
-                    <AlertDescription>
-                      The radio stream is available to signed-in users and vendors, while uploads are restricted to admins.
-                    </AlertDescription>
-                  </Alert>
-                  <div className="flex gap-3">
-                    <Button asChild className="flex-1 rounded-full">
-                      <a href="/vendor/login">Vendor sign in</a>
-                    </Button>
-                    <Button asChild variant="outline" className="flex-1 rounded-full">
-                      <a href="/admin/radio">Admin studio</a>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 space-y-5">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertTitle>Radio error</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="rounded-3xl border border-border bg-secondary/30 p-5 space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-2">Now queued</p>
-                        <h3 className="text-lg font-semibold leading-tight">
-                          {currentTrack?.title ?? 'Ready to stream'}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {currentTrack?.artist ?? 'Freshly uploaded tracks from SpringUpAI Radio'}
-                        </p>
-                      </div>
-                      {isLoadingTrack ? (
-                        <Loader2 className="size-5 animate-spin text-primary" />
-                      ) : (
-                        <Volume2 className="size-5 text-primary" />
-                      )}
-                    </div>
-
-                    <Progress value={progress} />
-
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}</span>
-                      <span>{currentTrack ? formatDuration(currentTrack) : '0:00'}</span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Button
-                        type="button"
-                        className="rounded-full flex-1"
-                        onClick={() => void handleTogglePlayback()}
-                        disabled={isLoadingQueue || isLoadingTrack || tracks.length === 0}
-                      >
-                        {isPlaying ? <Pause /> : <Play />}
-                        {isPlaying ? 'Pause' : 'Play'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="rounded-full"
-                        onClick={() => void handleNextTrack()}
-                        disabled={isLoadingTrack || tracks.length < 2}
-                      >
-                        <SkipForward />
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">Buffered tracks</p>
-                      <p className="text-xs text-muted-foreground">We preload 8 tracks and call the next batch when the buffer ends.</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-full"
-                      onClick={() => void fetchInitialQueue()}
-                      disabled={isLoadingQueue}
-                    >
-                      {isLoadingQueue ? <Loader2 className="animate-spin" /> : <Radio />}
-                      Refresh
-                    </Button>
-                  </div>
-
-                  <Separator />
-
-                  <ScrollArea className="h-72 pr-4">
-                    <div className="space-y-3">
-                      {tracks.length === 0 && !isLoadingQueue && (
-                        <div className="rounded-2xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
-                          No tracks buffered yet. Open the radio after upload, or refresh once the admin studio has published songs.
-                        </div>
-                      )}
-
-                      {tracks.map((track, index) => {
-                        const isActive = index === currentIndex;
-
-                        return (
-                          <button
-                            key={track.id}
-                            type="button"
-                            onClick={() => void handleSelectTrack(index)}
-                            className={cn(
-                              'w-full rounded-2xl border px-4 py-3 text-left transition hover:border-primary/40 hover:bg-secondary/40',
-                              isActive && 'border-primary bg-primary/5 shadow-sm'
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-medium leading-tight">{track.title}</p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {track.artist ?? track.album ?? 'SpringUpAI Radio'}
-                                </p>
-                              </div>
-                              <Badge variant={isActive ? 'default' : 'outline'}>
-                                {formatDuration(track)}
-                              </Badge>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-
-                  <div className="flex gap-3">
-                    <Button asChild variant="outline" className="flex-1 rounded-full">
-                      <a href="/admin/radio">Admin upload studio</a>
-                    </Button>
-                    <Button asChild variant="ghost" className="flex-1 rounded-full">
-                      <a href={currentTrack ? getRadioStreamUrl(currentTrack.id) : '/admin/radio'} target={currentTrack ? '_blank' : undefined} rel={currentTrack ? 'noreferrer' : undefined}>
-                        Inspect stream endpoint
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
+      {/* Closed state bubble */}
+      {view === 'closed' && (
         <button
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="group h-14 rounded-full bg-primary px-4 text-primary-foreground shadow-elevated inline-flex items-center gap-3 hover:scale-[1.03] active:scale-[0.98] transition-transform"
+          onClick={() => setView(hasEverPlayed.current ? 'mini' : 'full')}
+          className={cn(
+            'w-14 h-14 rounded-full bg-gradient-to-br from-[#1a1a2e] to-[#16213e] border-2 border-primary/30 shadow-[0_0_20px_rgba(var(--color-primary),0.3)] flex items-center justify-center transition-transform hover:scale-110 active:scale-95',
+            'animate-[bubble-float_3s_ease-in-out_0.5s_infinite]',
+            isPlaying && 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background border-primary/60'
+          )}
           aria-label={panelLabel}
         >
-          <span className="flex size-10 items-center justify-center rounded-full bg-white/15">
-            <Music2 size={20} />
-          </span>
-          <span className="hidden sm:flex flex-col items-start pr-1">
-            <span className="text-xs uppercase tracking-[0.2em] text-primary-foreground/70">Radio</span>
-            <span className="text-sm font-semibold leading-tight">{currentTrack?.title ?? 'Open player'}</span>
-          </span>
+          <Music2 size={22} className="text-white" />
         </button>
-      </div>
+      )}
     </>
   );
 }

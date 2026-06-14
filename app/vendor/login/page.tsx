@@ -4,13 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Zap } from 'lucide-react';
 import { vendorLogin, ApiError } from '@/lib/api';
-import { useAppDispatch } from '@/lib/store/hooks';
-import { setCredentials } from '@/lib/store/authSlice';
 import { Logo } from '@/components/logo';
 
 export default function VendorLogin() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,12 +24,7 @@ export default function VendorLogin() {
     }
 
     try {
-      const res = await vendorLogin(phone.trim());
-      dispatch(setCredentials({
-        token: localStorage.getItem('token')!,
-        vendorId: res.vendor_id,
-        vendor: res.user,
-      }));
+      await vendorLogin(phone.trim());
       router.push('/vendor/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {

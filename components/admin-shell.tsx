@@ -19,6 +19,8 @@ import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useAppDispatch } from '@/lib/store/hooks';
+import { clearAuth } from '@/lib/store/authSlice';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -64,9 +66,10 @@ function NavLink({
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   function handleLogout() {
-    localStorage.removeItem('token');
+    dispatch(clearAuth());
     router.push('/admin/login');
   }
 

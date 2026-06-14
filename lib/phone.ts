@@ -53,3 +53,14 @@ export function formatNigerianPhone(input: string) {
 
   return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
 }
+
+/**
+ * Best-effort normalisation for the API layer. If the input looks like a valid
+ * Nigerian phone in any common format, returns the canonical 11-digit local
+ * form (0XXX...). Otherwise returns the trimmed input unchanged so the backend
+ * can still reject/parse it.
+ */
+export function normalizePhone(input: string): string {
+  const result = parseNigerianPhone(input);
+  return result.isValid ? result.normalized : input.trim();
+}

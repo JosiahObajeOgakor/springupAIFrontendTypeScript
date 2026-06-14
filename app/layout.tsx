@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ReduxProvider } from '@/components/redux-provider'
+import { GlobalSpinner } from '@/components/global-spinner'
+import { MusicPlayer } from '@/components/music-player'
+import { ChatBubble } from '@/components/chat-bubble'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -72,7 +75,15 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         <ReduxProvider>
+          <GlobalSpinner />
           {children}
+          {/* Sticky floating bubbles */}
+          <div className="fixed bottom-4 left-4 z-[1000]">
+            <ChatBubble />
+          </div>
+          <div className="fixed bottom-4 right-4 z-[1000]">
+            <MusicPlayer />
+          </div>
         </ReduxProvider>
         <Toaster />
         {process.env.NODE_ENV === 'production' && <Analytics />}
