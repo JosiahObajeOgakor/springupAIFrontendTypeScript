@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BookOpen,
+  BarChart3,
+  BrainCircuit,
+  FileText,
   Key,
   LayoutDashboard,
   LogOut,
@@ -16,6 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { NotificationBell } from '@/components/notification-bell';
+import { ProtectedRoute } from '@/components/protected-route';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -29,6 +34,9 @@ const NAV_ITEMS = [
   { href: '/admin/radio', label: 'Radio Studio', icon: Radio },
   { href: '/admin/ebooks', label: 'Ebook Advances', icon: BookOpen },
   { href: '/admin/embed-keys', label: 'Embed Keys', icon: Key },
+  { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/admin/ml', label: 'ML Rules', icon: BrainCircuit },
+  { href: '/admin/logs', label: 'Event Logs', icon: FileText },
 ];
 
 function NavLink({
@@ -89,7 +97,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
         ))}
       </nav>
 
-      <div className="pt-4 border-t border-border">
+      <div className="pt-4 border-t border-border space-y-1">
+        <div className="px-3 py-1 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-medium">Notifications</span>
+          <NotificationBell />
+        </div>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
@@ -106,7 +118,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background text-foreground flex">
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-60 shrink-0 border-r border-border bg-card/50">
         <SidebarContent />
@@ -132,6 +145,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </Button>
           <Logo />
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
 
         <main className="flex-1 p-5 sm:p-8 max-w-7xl w-full mx-auto">
@@ -139,5 +155,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

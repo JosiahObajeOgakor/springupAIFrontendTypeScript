@@ -14,3 +14,4 @@ export * from "./kyc";
 export * from "./payout";
 export * from "./admin";
 export * from "./ebook";
+export * from "./ai";

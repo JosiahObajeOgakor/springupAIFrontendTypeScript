@@ -94,3 +94,19 @@ export async function checkPlan(vendorId: string) {
     params: { vendorId },
   });
 }
+
+// POST /api/v1/vendor/materials/upload — upload delivery material for a job.
+export async function uploadVendorMaterials(payload: import('./types').VendorMaterialsUploadPayload) {
+  return api<void>("/api/v1/vendor/materials/upload", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+// POST /api/v1/vendor/materials/confirm — vendor confirms material delivery.
+export async function confirmVendorDelivery(payload: import('./types').VendorMaterialsConfirmPayload) {
+  return api<void>("/api/v1/vendor/materials/confirm", {
+    method: "POST",
+    body: payload,
+  });
+}

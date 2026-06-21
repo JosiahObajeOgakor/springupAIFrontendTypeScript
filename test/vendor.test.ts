@@ -125,4 +125,15 @@ describe("vendor module", () => {
     await updateVendorProfile({ name: "New name", bio: "10 years fixing ACs" });
     expect(lastRequest().method).toBe("PATCH");
     expect(pathOf()).toBe("/api/v1/vendor/update");
-    expect(jsonBody()
+    expect(jsonBody()).toMatchObject({ name: "New name", bio: "10 years fixing ACs" });
+  });
+
+  it("contactVendor POSTs /vendor/contact", async () => {
+    setAuthToken("v-tok");
+    mockResponse({ status: 200, body: {} });
+    await contactVendor({ vendor_id: "vend-1", message: "Hi" });
+    expect(lastRequest().method).toBe("POST");
+    expect(pathOf()).toBe("/api/v1/vendor/contact");
+    expect(jsonBody()).toEqual({ vendor_id: "vend-1", message: "Hi" });
+  });
+});

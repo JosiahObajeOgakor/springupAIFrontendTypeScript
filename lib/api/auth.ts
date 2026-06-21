@@ -44,11 +44,20 @@ export async function adminLogin(payload: AdminLoginPayload) {
     body: { secret: payload.secret },
     noAuth: true,
   });
+  // Defensively accept both `token` and `access_token` in case the server
+  // response shape differs from the spec.
+  const jwt =
+    res.token ??
+    (res as unknown as Record<string, string>).access_token ??
+    (res as unknown as Record<string, string>).data;
+  if (!jwt || typeof jwt !== 'string') {
+    throw new Error('Admin login did not return a token.');
+  }
   store.dispatch(setCredentials({
-    token: res.token,
+    token: jwt,
     vendorId: "admin",
   }));
-  return res;
+  return { ...res, token: jwt };
 }
 
 // POST /api/v1/auth/vendor-token — mint a vendor-role token for the current

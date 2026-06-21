@@ -27,6 +27,7 @@ export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const playedTrackIdsRef = useRef<string[]>([]);
+  const sessionIdRef = useRef<string | null>(null);
   const hasFetchedRef = useRef(false);
   const hasEverPlayed = useRef(false);
   const [view, setView] = useState<PlayerView>('closed');
@@ -40,6 +41,7 @@ export function MusicPlayer() {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [blocked, setBlocked] = useState<string | null>(null); // blocked_until ISO string
 
   const currentTrack = tracks[currentIndex] ?? null;
 
@@ -80,11 +82,17 @@ export function MusicPlayer() {
       if (currentIndex >= tracks.length - 2 && currentTrack) {
         try {
           const res = await checkRadioBuffer({
-            current_track_id: currentTrack.id,
-            played_track_ids: playedTrackIdsRef.current,
-            buffer_size: 8,
+            session_id: sessionIdRef.current ?? undefined,
           });
+          if (res.action === 'stop') {
+            // Purchase gate triggered — halt playback and show message
+            audioRef.current?.pause();
+            setIsPlaying(false);
+            toast.error(res.message ?? 'Keep shopping to keep the music going!');
+            return;
+          }
           const nextBatch = res.manifest?.tracks ?? [];
+          if (res.manifest?.session_id) sessionIdRef.current = res.manifest.session_id;
           if (nextBatch.length > 0) {
             setTracks((prev) => {
               const knownIds = new Set(prev.map((t) => t.id));
@@ -120,11 +128,30 @@ export function MusicPlayer() {
     setIsLoadingQueue(true);
     try {
       const manifest = await preloadRadioTracks();
+      sessionIdRef.current = manifest.session_id;
       setTracks(manifest.tracks as unknown as RadioTrack[]);
       setCurrentIndex(0);
+      setBlocked(null);
       hasFetchedRef.current = true;
-    } catch (err) {
-      if (err instanceof Error) toast.error(err.message);
+    } catch (err: unknown) {
+      // 403 = user is blocked (no purchase in last 24h)
+      if (
+        err &&
+        typeof err === 'object' &&
+        'status' in err &&
+        (err as { status: number }).status === 403
+      ) {
+        const body = (err as { body?: { blocked_until?: string } }).body;
+        const until = body?.blocked_until ?? null;
+        setBlocked(until);
+        toast.error(
+          until
+            ? `Radio locked until ${new Date(until).toLocaleTimeString()}. Make a purchase to unlock.`
+            : 'Radio locked — make a purchase to unlock.',
+        );
+      } else if (err instanceof Error) {
+        toast.error(err.message);
+      }
     } finally {
       setIsLoadingQueue(false);
     }
@@ -272,6 +299,16 @@ export function MusicPlayer() {
                       >
                         Sign In
                       </a>
+                    </div>
+                  ) : blocked ? (
+                    <div className="text-center px-6 pb-4 space-y-2">
+                      <p className="text-sm text-amber-400 font-semibold">Radio locked 🔒</p>
+                      <p className="text-xs text-white/50">
+                        Make a purchase to unlock 24h of streaming.
+                        {blocked && (
+                          <> Unlocks at {new Date(blocked).toLocaleTimeString()}.</>
+                        )}
+                      </p>
                     </div>
                   ) : (
                     <>

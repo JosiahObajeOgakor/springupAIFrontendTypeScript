@@ -1,11 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Music2, Radio, Upload } from 'lucide-react';
+import { CheckCircle2, Loader2, Music2, Radio, Upload, Zap } from 'lucide-react';
 import {
   listAdminRadioTracks,
   uploadAdminRadioBatch,
   uploadAdminRadioTrack,
+  presignRadioUpload,
+  putRadioFileToS3,
+  completeRadioUpload,
   type RadioTrack,
 } from '@/lib/api';
 import { useAppSelector } from '@/lib/store/hooks';
@@ -42,6 +45,13 @@ export default function AdminRadioPage() {
   const [uploadingBatch, setUploadingBatch] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+
+  // ── Presigned S3 upload state ────────────────────────────────────────────────
+  const [presignFile, setPresignFile] = useState<File | null>(null);
+  const [presignMeta, setPresignMeta] = useState({ title: '', artist: '', genre: '' });
+  const [presignUploading, setPresignUploading] = useState(false);
+  const [presignProgress, setPresignProgress] = useState(0);
+  const [presignDone, setPresignDone] = useState(false);
 
   const hasToken = useAppSelector(selectIsAuthenticated);
 
@@ -109,6 +119,41 @@ export default function AdminRadioPage() {
     }
   };
 
+  const handlePresignUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!presignFile) { setError('Select a file.'); return; }
+    setPresignUploading(true);
+    setPresignProgress(0);
+    setPresignDone(false);
+    setError('');
+    try {
+      // Step 1: get presigned URL
+      const presign = await presignRadioUpload({
+        file_name: presignFile.name,
+        content_type: presignFile.type || 'audio/mpeg',
+        title: presignMeta.title || undefined,
+        artist: presignMeta.artist || undefined,
+        genre: presignMeta.genre || undefined,
+        file_size_bytes: presignFile.size,
+      });
+      // Step 2: PUT directly to S3
+      await putRadioFileToS3(presign.put_url, presignFile, setPresignProgress);
+      // Step 3: activate
+      await completeRadioUpload({ track_id: presign.track_id, file_size_bytes: presignFile.size });
+      setPresignDone(true);
+      toast.success('Track uploaded via S3 — no gateway proxy!');
+      setPresignFile(null);
+      setPresignMeta({ title: '', artist: '', genre: '' });
+      await refreshTracks();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Presigned upload failed.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setPresignUploading(false);
+    }
+  };
+
   return (
     <AdminShell>
       <div className="space-y-6">
@@ -142,6 +187,7 @@ export default function AdminRadioPage() {
           <TabsList>
             <TabsTrigger value="single">Single upload</TabsTrigger>
             <TabsTrigger value="batch">Batch upload</TabsTrigger>
+            <TabsTrigger value="presign" className="gap-1"><Zap size={12} />Direct S3</TabsTrigger>
             <TabsTrigger value="tracks">Track library</TabsTrigger>
           </TabsList>
 
@@ -241,6 +287,61 @@ export default function AdminRadioPage() {
                       <Button type="submit" className="rounded-full" disabled={uploadingBatch || !hasToken || batchFiles.length === 0}>
                         {uploadingBatch ? <Loader2 className="animate-spin" /> : <Upload />}
                         Upload batch
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Direct S3 presigned upload */}
+          <TabsContent value="presign">
+            <Card className="rounded-3xl shadow-float">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Zap size={16} className="text-primary" /> Direct S3 Upload</CardTitle>
+                <CardDescription>
+                  Skips the gateway proxy — presigns an S3 PUT URL, uploads directly from the browser, then activates the track. Fastest for large files (up to 50 MB).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handlePresignUpload} className="grid gap-5 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="presign-file">Audio file (mp3 / wav)</Label>
+                    <Input id="presign-file" type="file" accept="audio/*"
+                      onChange={(e) => { setPresignFile(e.target.files?.[0] ?? null); setPresignDone(false); }} />
+                  </div>
+                  {(['title', 'artist', 'genre'] as const).map((field) => (
+                    <div key={field} className="space-y-2">
+                      <Label htmlFor={`presign-${field}`} className="capitalize">{field}</Label>
+                      <Input
+                        id={`presign-${field}`}
+                        value={presignMeta[field]}
+                        onChange={(e) => setPresignMeta((prev) => ({ ...prev, [field]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  <div className="md:col-span-2 space-y-3">
+                    {presignUploading && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground font-medium">Uploading directly to S3…</span>
+                          <span className="font-semibold text-primary">{presignProgress}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                          <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${presignProgress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    {presignDone && (
+                      <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                        <CheckCircle2 size={16} /> Track activated successfully.
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <Button type="submit" className="rounded-full" disabled={presignUploading || !hasToken || !presignFile}>
+                        {presignUploading ? <Loader2 className="animate-spin" /> : <Zap size={15} />}
+                        Upload via S3
                       </Button>
                     </div>
                   </div>

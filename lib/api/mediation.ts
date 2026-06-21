@@ -16,7 +16,7 @@ export async function openConversation(payload: OpenConversationPayload) {
 export async function sendMessage(payload: SendMessagePayload) {
   return api<Message>("/api/v1/mediation/messages/relay", {
     method: "POST",
-    body: payload,
+    body: { conversation_id: payload.conversation_id, message: payload.message },
   });
 }
 

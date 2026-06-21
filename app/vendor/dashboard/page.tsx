@@ -12,6 +12,12 @@ import { useVendorDashboardStore } from '@/lib/stores/vendor-dashboard-store';
 import { ProtectedRoute } from '@/components/protected-route';
 import { ImageCropperDialog } from '@/components/image-cropper-dialog';
 import { Logo } from '@/components/logo';
+import { TierApplyCard } from '@/components/tier-apply-card';
+import { PayoutRequestCard } from '@/components/payout-request-card';
+import { VendorProfileEditCard } from '@/components/vendor-profile-edit-card';
+import { WalletCard } from '@/components/wallet-card';
+import { EscrowLifecycleCard } from '@/components/escrow-lifecycle-card';
+import { MediationThreadCard } from '@/components/mediation-thread-card';
 
 import { toast } from 'sonner';
 
@@ -67,6 +73,18 @@ function DashboardContent() {
   const [advanceSubmitting, setAdvanceSubmitting] = useState(false);
   const [advanceError, setAdvanceError] = useState('');
   const [advanceSuccess, setAdvanceSuccess] = useState(false);
+
+  // Detect return from Paystack via ?kyc_paid=1 query param.
+  const kycReturnRef = useRef(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('kyc_paid') === '1') {
+      kycReturnRef.current = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('kyc_paid');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
 
   // KYC verification wizard — state lives in the Zustand vendor-dashboard store.
   // Thin local adapters keep the existing call sites (setKycForm/setKycFile/…)
@@ -164,6 +182,12 @@ function DashboardContent() {
         setPlan(planData);
         setKyc(kycData);
         setEbooks(ebookData);
+
+        // If returning from Paystack, kick off status polling immediately.
+        if (kycReturnRef.current && vendorId) {
+          kycReturnRef.current = false;
+          startKycStatusPoll(vendorId);
+        }
       } catch {
         // silently fail — no redirect
       } finally {
@@ -192,6 +216,22 @@ function DashboardContent() {
     }
   };
 
+  const startKycStatusPoll = (vid: string) => {
+    let calls = 0;
+    const poll = setInterval(async () => {
+      calls += 1;
+      try {
+        const latest = await getKycStatus(vid);
+        setKyc(latest);
+        if (latest.status === 'verified' || latest.status === 'approved' || latest.status === 'rejected' || calls >= 3) {
+          clearInterval(poll);
+        }
+      } catch {
+        clearInterval(poll);
+      }
+    }, 5000);
+  };
+
   const handleKycSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!kycFile || !kycForm.idNumber) {
@@ -216,18 +256,22 @@ function DashboardContent() {
         onProgress: (p) => setUploadProgress(p),
         noAuth: true,
       });
-      // Submit starts the ₦5,000 verification charge backend-side and returns
-      // immediately with status "payment_pending"; the vendor is verified later
-      // once the Paystack webhook confirms the charge.
       const result = await submitKyc({
         vendor_id: vendorId,
         method: kycForm.method,
+        callback_url: `${window.location.origin}/vendor/dashboard?kyc_paid=1`,
         ...(kycForm.method === 'bvn'
           ? { bvn: kycForm.idNumber }
           : { nin: kycForm.idNumber }),
       });
       setKycSuccess(true);
       setKyc({ vendor_id: vendorId, status: result.status || 'payment_pending', method: kycForm.method });
+
+      if (result.payment_url) {
+        window.location.href = result.payment_url;
+      } else if ((result.status || 'payment_pending') === 'payment_pending') {
+        startKycStatusPoll(vendorId);
+      }
     } catch {
       setKycError('KYC submission failed. Please try again.');
     } finally {
@@ -516,7 +560,7 @@ function DashboardContent() {
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 p-1 bg-secondary rounded-full overflow-x-auto no-scrollbar">
-          {['overview', 'ebooks', 'transactions', 'deliveries', 'wallet', 'services', 'kyc', 'referral'].map((tab) => (
+          {['overview', 'ebooks', 'transactions', 'deliveries', 'wallet', 'services', 'kyc', 'tier', 'payout', 'profile', 'escrow', 'mediation', 'referral'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -524,7 +568,7 @@ function DashboardContent() {
                 activeTab === tab ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {tab === 'kyc' ? 'KYC' : tab}
+              {tab === 'kyc' ? 'KYC' : tab === 'tier' ? 'Tier / Upgrade' : tab === 'payout' ? 'Payout' : tab === 'profile' ? 'Edit Profile' : tab === 'escrow' ? 'Escrow' : tab === 'mediation' ? 'Mediation' : tab}
             </button>
           ))}
         </div>
@@ -970,6 +1014,11 @@ function DashboardContent() {
                 </form>
               </div>
             )}
+
+            {/* Fund / virtual account / internal transfer */}
+            <div className="mt-6">
+              <WalletCard ownerId={vendorId ?? ''} />
+            </div>
           </div>
         )}
 
@@ -1265,16 +1314,31 @@ function DashboardContent() {
         {activeTab === 'kyc' && (
           <div id="kyc-section" className="max-w-lg">
             {kyc?.status === 'approved' ? (
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 text-center">
-                <CheckCircle size={40} className="text-green-600 mx-auto mb-3" />
-                <h3 className="font-bold text-lg mb-1">KYC Verified</h3>
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 text-center space-y-3">
+                <CheckCircle size={40} className="text-green-600 mx-auto" />
+                <h3 className="font-bold text-lg">KYC Verified</h3>
                 <p className="text-sm text-muted-foreground">Your identity has been verified. You can now create services and receive payments.</p>
+                {!plan?.active && (
+                  <button
+                    onClick={() => setActiveTab('tier')}
+                    className="mt-2 px-5 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-semibold hover:scale-105 transition-transform"
+                  >
+                    Upgrade to a paid tier →
+                  </button>
+                )}
               </div>
             ) : kyc?.status === 'pending' || kyc?.status === 'payment_pending' || kycSuccess ? (
               <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-6 text-center">
                 <Clock size={40} className="text-yellow-600 mx-auto mb-3" />
                 <h3 className="font-bold text-lg mb-1">KYC Verification Pending</h3>
                 <p className="text-sm text-muted-foreground">We&apos;ve received your details and started the ₦5,000 verification payment. Your account is verified automatically once the payment is confirmed.</p>
+                <button
+                  type="button"
+                  onClick={() => { setKycSuccess(false); setKyc(null); }}
+                  className="mt-4 text-sm font-medium text-yellow-700 dark:text-yellow-300 hover:underline"
+                >
+                  Try again →
+                </button>
               </div>
             ) : (
               <div className="bg-card rounded-2xl p-6 border border-border shadow-float">
@@ -1505,6 +1569,52 @@ function DashboardContent() {
             </div>
           </div>
         )}
+
+        {/* Tier / Upgrade Tab */}
+        {activeTab === 'tier' && (
+          <div className="max-w-lg">
+            <TierApplyCard
+              vendorId={vendorId ?? ''}
+              vendorEmail={(vendor as any)?.email ?? ''}
+            />
+          </div>
+        )}
+
+        {/* Payout Tab */}
+        {activeTab === 'payout' && (
+          <div className="max-w-lg">
+            <PayoutRequestCard vendorId={vendorId ?? ''} />
+          </div>
+        )}
+
+        {/* Edit Profile Tab */}
+        {activeTab === 'profile' && (
+          <div className="max-w-lg">
+            <VendorProfileEditCard
+              initial={{
+                name: (vendor as any)?.name,
+                category: (vendor as any)?.category,
+                location: (vendor as any)?.location,
+                bio: (vendor as any)?.bio,
+              }}
+            />
+          </div>
+        )}
+
+        {/* Escrow Tab */}
+        {activeTab === 'escrow' && (
+          <div className="max-w-lg">
+            <EscrowLifecycleCard />
+          </div>
+        )}
+
+        {/* Mediation Tab */}
+        {activeTab === 'mediation' && (
+          <div className="max-w-lg">
+            <MediationThreadCard />
+          </div>
+        )}
+
         </div>
 
       {/* Idle timeout warning modal */}

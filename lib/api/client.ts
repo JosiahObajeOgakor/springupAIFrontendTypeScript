@@ -1,6 +1,7 @@
 import { store } from '@/lib/store';
 import { updateToken, clearAuth } from '@/lib/store/authSlice';
 import { useUiStore } from '@/lib/stores/ui-store';
+import { notify } from '@/lib/stores/notification-store';
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
@@ -79,7 +80,10 @@ let refreshPromise: Promise<void> | null = null;
 async function attemptRefresh(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   const rt = getRefreshToken();
-  if (!rt) return false;
+  // Admin sessions (vendorId === 'admin') have no refresh token — skip the
+  // attempt and let the caller redirect to /admin/login immediately.
+  const vendorId = store.getState().auth.vendorId;
+  if (!rt || vendorId === 'admin') return false;
   try {
     const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
       method: "POST",
@@ -180,6 +184,7 @@ export async function api<T>(
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
     const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 2000;
+    notify({ type: 'info', message: `Too many requests — retrying in ${Math.round(waitMs / 1000)}s…` });
     await delay(waitMs);
     res = await makeRequest();
   }

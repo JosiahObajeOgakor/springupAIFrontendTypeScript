@@ -8,6 +8,7 @@ import type {
   VirtualAccountPayload,
   InternalTransferPayload,
   WalletWithdrawPayload,
+  ExternalTransferPayload,
 } from "./types";
 
 export async function fundWallet(payload: WalletFundPayload) {
@@ -54,6 +55,14 @@ export async function internalTransfer(payload: InternalTransferPayload) {
 
 export async function withdraw(payload: WalletWithdrawPayload) {
   return api<void>("/api/v1/wallet/withdraw", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+// POST /api/v1/wallet/transfer/external — transfer to an external bank account.
+export async function externalTransfer(payload: ExternalTransferPayload) {
+  return api<void>("/api/v1/wallet/transfer/external", {
     method: "POST",
     body: payload,
   });

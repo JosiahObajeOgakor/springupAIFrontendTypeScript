@@ -207,14 +207,14 @@ export interface WalletRefundPayload {
   job_id: string;
 }
 
-export interface VirtualAccountPayload {
-  bank: string;
-}
+// POST /api/v1/wallet/virtual-account — spec v2: no request body.
+export type VirtualAccountPayload = Record<string, never>;
 
 export interface InternalTransferPayload {
-  to_user_id: string;
-  amount: number;
-  narration?: string;
+  /** Spec v2: field is `recipient_id`, not `to_user_id`. */
+  recipient_id: string;
+  amount_kobo: number;
+  note?: string;
 }
 
 export interface WalletWithdrawPayload {
@@ -292,7 +292,8 @@ export interface Conversation {
 
 export interface SendMessagePayload {
   conversation_id: string;
-  content: string;
+  /** Spec v2: field is `message`, not `content`. */
+  message: string;
 }
 
 export interface Message {
@@ -397,7 +398,8 @@ export interface RadioCheckResponse {
 // ─── Bills / Remita ──────────────────────────────────────────────────────────
 export interface AirtimePayload {
   phone: string;
-  amount: number;
+  /** Amount in kobo. */
+  amount_kobo: number;
   network: string;
 }
 
@@ -487,6 +489,8 @@ export interface KycSubmitPayload {
   doc_back_url?: string;
   /** Optional; derived from the vendor phone if omitted. */
   email?: string;
+  /** Paystack will redirect here after payment. */
+  callback_url?: string;
 }
 
 export interface KycSubmitResponse {
@@ -496,6 +500,9 @@ export interface KycSubmitResponse {
   method?: string;
   paystack_ref?: string;
   paystack_status?: string;
+  /** Paystack checkout URL — open in a popup and wait for it to close before polling status. */
+  payment_url?: string;
+  selfie_url?: string;
   /** e.g. payment_pending */
   status: string;
   updated_at?: string;
@@ -517,7 +524,8 @@ export interface KycDocumentResponse {
 
 // ─── Payout ──────────────────────────────────────────────────────────────────
 export interface PayoutRequestPayload {
-  amount: number;
+  /** Amount in kobo (multiply ₦ × 100). */
+  amount_kobo: number;
   bank_code: string;
   account_number: string;
   account_name: string;
@@ -611,4 +619,189 @@ export interface HardCopyPurchasePayload {
   ebook_id: string;
   delivery_address: string;
   delivery_phone: string;
+}
+
+// ─── Escrow (missing actions) ─────────────────────────────────────────────────
+export interface EscrowConfirmSatisfactionPayload {
+  escrow_id: string;
+  rating?: number; // 1–5
+  feedback?: string;
+}
+
+export interface EscrowDisputePayload {
+  escrow_id: string;
+  reason: string;
+}
+
+export interface EscrowStatusResponse {
+  escrow_id: string;
+  status: string;
+}
+
+// ─── Vendor Materials ─────────────────────────────────────────────────────────
+export interface VendorMaterialsUploadPayload {
+  escrow_id: string;
+  url: string;
+  notes?: string;
+}
+
+export interface VendorMaterialsConfirmPayload {
+  escrow_id: string;
+}
+
+// ─── Marketplace enriched search ──────────────────────────────────────────────
+export interface EnrichedSearchPayload {
+  category?: string;
+  location?: string;
+  query?: string;
+}
+
+// ─── Payout admin actions ─────────────────────────────────────────────────────
+export interface PayoutApprovePayload {
+  payout_id: string;
+}
+
+export interface PayoutCompletePayload {
+  payout_id: string;
+  transfer_reference?: string;
+}
+
+export interface PayoutFailPayload {
+  payout_id: string;
+  reason: string;
+}
+
+// ─── Wallet external transfer ─────────────────────────────────────────────────
+export interface ExternalTransferPayload {
+  amount_kobo: number;
+  bank_code: string;
+  account_number: string;
+}
+
+// ─── Flights ──────────────────────────────────────────────────────────────────
+export interface FlightSearchParams {
+  origin: string;
+  destination: string;
+  date: string; // ISO date YYYY-MM-DD
+  passengers?: number;
+}
+
+export interface FlightPassenger {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface FlightBookPayload {
+  flight_id: string;
+  passengers: FlightPassenger[];
+}
+
+// ─── Admin (missing endpoints) ────────────────────────────────────────────────
+export interface AdminDashboardResponse {
+  [key: string]: unknown;
+}
+
+export interface AdminDisputeResolvePayload {
+  escrow_id: string;
+  resolution: 'refund_user' | 'release_vendor' | 'split';
+  notes?: string;
+}
+
+export interface AdminVendorSuspendPayload {
+  vendor_id: string;
+  reason: string;
+}
+
+export interface AdminVendorUnsuspendPayload {
+  vendor_id: string;
+}
+
+export interface AdminVendorApprovePayload {
+  vendor_id: string;
+  approved: boolean;
+  reason?: string;
+}
+
+export interface AdminMlRuleCreatePayload {
+  rule_type: string;
+  condition: string;
+  action: string;
+}
+
+export interface AdminMlRuleUpdatePayload {
+  rule_id: string;
+  condition?: string;
+  action?: string;
+}
+
+export interface AdminEventLogParams {
+  from?: string;
+  to?: string;
+}
+
+// ─── Radio presigned upload ────────────────────────────────────────────────────
+export interface RadioPresignPayload {
+  file_name: string;
+  content_type?: string;
+  title?: string;
+  artist?: string;
+  genre?: string;
+  mood?: string;
+  energy?: string;
+  content_rating?: string;
+  tags?: string;
+  admin_id?: string;
+  file_size_bytes?: number;
+  duration_secs?: number;
+}
+
+export interface RadioPresignResponse {
+  track_id: string;
+  put_url: string;
+  file_key: string;
+  content_type: string;
+  expires_in_secs: number;
+  file_size_bytes?: number;
+  upload_method: string;
+}
+
+export interface RadioPresignBatchPayload {
+  name?: string;
+  admin_id?: string;
+  files: Array<{
+    file_name: string;
+    content_type?: string;
+    title?: string;
+    artist?: string;
+    genre?: string;
+    mood?: string;
+    file_size_bytes?: number;
+  }>;
+}
+
+export interface RadioPresignBatchResponse {
+  batch_id: string;
+  requested: number;
+  ready: number;
+  total_bytes: number;
+  upload_method: string;
+  tracks: RadioPresignResponse[];
+}
+
+export interface RadioUploadCompletePayload {
+  track_id: string;
+  duration_secs?: number;
+  file_size_bytes?: number;
+}
+
+export interface RadioUploadCompleteResponse {
+  track_id: string;
+  status: string;
+}
+
+// ─── AI streaming ─────────────────────────────────────────────────────────────
+export interface AiStreamPayload {
+  message: string;
+  session_id?: string;
 }

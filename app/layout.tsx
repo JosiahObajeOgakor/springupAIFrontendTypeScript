@@ -5,6 +5,8 @@ import { ReduxProvider } from '@/components/redux-provider'
 import { GlobalSpinner } from '@/components/global-spinner'
 import { MusicPlayer } from '@/components/music-player'
 import { ChatBubble } from '@/components/chat-bubble'
+import { AiAssistantPanel } from '@/components/ai-assistant-panel'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -75,15 +77,18 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         <ReduxProvider>
-          <GlobalSpinner />
-          {children}
-          {/* Sticky floating bubbles */}
-          <div className="fixed bottom-4 left-4 z-[1000]">
-            <ChatBubble />
-          </div>
-          <div className="fixed bottom-4 right-4 z-[1000]">
-            <MusicPlayer />
-          </div>
+          <ErrorBoundary>
+            <GlobalSpinner />
+            {children}
+            {/* Sticky floating bubbles */}
+            <div className="fixed bottom-4 left-4 z-[1000]">
+              <ChatBubble />
+            </div>
+            <div className="fixed bottom-4 right-4 z-[1000] flex flex-col items-end gap-3">
+              <AiAssistantPanel />
+              <MusicPlayer />
+            </div>
+          </ErrorBoundary>
         </ReduxProvider>
         <Toaster />
         {process.env.NODE_ENV === 'production' && <Analytics />}
