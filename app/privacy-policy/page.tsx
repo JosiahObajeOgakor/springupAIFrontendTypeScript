@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | SpringUpAI",
@@ -7,7 +8,14 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground py-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border glass">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+          <Logo />
+          <a href="/" className="text-sm font-medium text-primary hover:underline">← Home</a>
+        </div>
+      </header>
+      <main className="py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Privacy Policy</h1>
         <p className="text-sm text-muted-foreground mb-8">Last updated: May 20, 2026</p>
@@ -105,6 +113,7 @@ export default function PrivacyPolicyPage() {
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }
