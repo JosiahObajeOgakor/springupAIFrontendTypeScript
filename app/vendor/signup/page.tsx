@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, CheckCircle, Zap, Gift } from 'lucide-react';
 import { registerVendor, ApiError } from '@/lib/api';
 import { Logo } from '@/components/logo';
-
 export default function VendorSignup() {
   return (
     <Suspense>
