@@ -177,6 +177,18 @@ export interface PlanCheckResponse {
   plan: string;
   tier_status: string;
   expires_at: string;
+  warning?: string;
+}
+
+export interface VendorPlan {
+  id?: string;
+  name: string;
+  tier_level: VendorTierLevel;
+  price: number;
+  currency: string;
+  description?: string;
+  features?: string[];
+  service_listing_limit?: number;
 }
 
 // ─── Wallet ──────────────────────────────────────────────────────────────────
@@ -719,7 +731,7 @@ export interface AdminVendorUnsuspendPayload {
 
 export interface AdminVendorApprovePayload {
   vendor_id: string;
-  approved: boolean;
+  action: 'approve' | 'reject';
   reason?: string;
 }
 

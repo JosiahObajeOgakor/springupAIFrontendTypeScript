@@ -267,11 +267,8 @@ function DashboardContent() {
       setKycSuccess(true);
       setKyc({ vendor_id: vendorId, status: result.status || 'payment_pending', method: kycForm.method });
 
-      if (result.payment_url) {
-        window.location.href = result.payment_url;
-      } else if ((result.status || 'payment_pending') === 'payment_pending') {
-        startKycStatusPoll(vendorId);
-      }
+      // KYC payment will happen via Paystack webhook. Payment URL is stored in result but not used here.
+      // User will upgrade to a plan separately via the Tier/Upgrade tab.
     } catch {
       setKycError('KYC submission failed. Please try again.');
     } finally {
@@ -482,6 +479,23 @@ function DashboardContent() {
                 className="mt-2 text-sm font-medium text-primary hover:underline"
               >
                 Complete KYC →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Trial warning banner */}
+        {plan && !plan.active && plan.warning && (
+          <div className="mb-6 rounded-2xl p-4 border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 flex items-start gap-3">
+            <AlertTriangle size={20} className="text-orange-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-orange-800 dark:text-orange-200">Trial ending soon</p>
+              <p className="text-sm text-orange-700 dark:text-orange-300 mt-0.5">{plan.warning}</p>
+              <button
+                onClick={() => setActiveTab('tier')}
+                className="mt-2 text-sm font-medium text-primary hover:underline"
+              >
+                Upgrade now →
               </button>
             </div>
           </div>

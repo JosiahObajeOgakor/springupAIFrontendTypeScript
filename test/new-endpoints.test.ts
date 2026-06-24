@@ -75,12 +75,12 @@ describe("admin — new endpoints", () => {
     expect(jsonBody()).toMatchObject({ vendor_id: "vend-1" });
   });
 
-  it("approveVendor POSTs approved:true", async () => {
+  it("approveVendor POSTs action:approve", async () => {
     setAuthToken("admin-tok");
     mockResponse({ body: {} });
-    await approveVendor({ vendor_id: "vend-1", approved: true });
+    await approveVendor({ vendor_id: "vend-1", action: "approve" });
     expect(pathOf()).toBe("/api/v1/admin/vendor/approve");
-    expect(jsonBody()).toMatchObject({ vendor_id: "vend-1", approved: true });
+    expect(jsonBody()).toMatchObject({ vendor_id: "vend-1", action: "approve" });
   });
 
   it("getRevenueReport GETs /admin/reports/revenue", async () => {

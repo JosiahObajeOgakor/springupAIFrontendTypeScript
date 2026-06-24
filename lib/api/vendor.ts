@@ -15,6 +15,7 @@ import type {
   TierApplyPayload,
   TierApplyResponse,
   PlanCheckResponse,
+  VendorPlan,
 } from "./types";
 
 export async function registerVendor(payload: VendorRegisterPayload) {
@@ -92,6 +93,12 @@ export async function applyForTier(payload: TierApplyPayload) {
 export async function checkPlan(vendorId: string) {
   return api<PlanCheckResponse>("/api/v1/vendor/plan/check", {
     params: { vendorId },
+  });
+}
+
+export async function getVendorPlans() {
+  return api<VendorPlan[]>("/api/v1/vendor/plans", {
+    method: "GET",
   });
 }
 

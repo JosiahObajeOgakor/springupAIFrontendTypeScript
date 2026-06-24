@@ -104,7 +104,7 @@ export default function AdminVendorsPage() {
         await unsuspendVendor({ vendor_id: dialog.vendor.id });
         toast.success(`${dialog.vendor.name} unsuspended.`);
       } else if (dialog.type === 'approve') {
-        await approveVendor({ vendor_id: dialog.vendor.id, approved: true, reason: reason.trim() || undefined });
+        await approveVendor({ vendor_id: dialog.vendor.id, action: 'approve', reason: reason.trim() || undefined });
         toast.success(`${dialog.vendor.name} approved.`);
       }
       setDialog(null);
