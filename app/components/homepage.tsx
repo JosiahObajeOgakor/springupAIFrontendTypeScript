@@ -762,6 +762,7 @@ export default function Homepage() {
               <a href="/terms-and-conditions" className="hover:text-foreground transition">Terms &amp; Conditions</a>
               <a href="/refund-policy" className="hover:text-foreground transition">Refund Policy</a>
               <a href="/return-policy" className="hover:text-foreground transition">Return Policy</a>
+              <a href="/datadeletion" className="hover:text-foreground transition">Data Deletion</a>
             </div>
             <p className="text-xs text-muted-foreground">&copy; 2026 SpringUpAI. All rights reserved.</p>
             <p className="text-xs text-muted-foreground/60 text-center max-w-lg">
