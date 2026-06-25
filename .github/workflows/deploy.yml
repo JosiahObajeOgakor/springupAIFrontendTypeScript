@@ -1,0 +1,50 @@
+name: CI/CD → Vercel
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (preview on PR)
+        if: github.event_name == 'pull_request'
+        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production on push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
