@@ -312,7 +312,7 @@ export default function Homepage() {
             <a href="#services" className="text-sm text-muted-foreground hover:text-foreground transition">Services</a>
             <a href="/vendor/login" className="text-sm text-muted-foreground hover:text-foreground transition">Vendors</a>
           </nav>
-          <a href="/chat" className="relative px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-transform">
+          <a href="https://wa.me/2347039986047?text=Hi%2C%20I%20need%20a%20plumber%20in%20Lekki" target="_blank" rel="noopener noreferrer" className="relative px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-transform">
             <span className="relative z-10 flex items-center gap-1.5">
               <MessageCircle size={14} /> Chat Now
             </span>
@@ -373,7 +373,9 @@ export default function Homepage() {
             ].map((chip) => (
               <a
                 key={chip}
-                href="/chat"
+                href="https://wa.me/2347039986047?text=Hi%2C%20I%20need%20a%20plumber%20in%20Lekki"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="px-4 py-2 rounded-full border border-border bg-card text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-primary/5 transition-colors"
               >
                 {chip}
@@ -388,7 +390,7 @@ export default function Homepage() {
             transition={{ duration: 0.5, delay: 0.45 }}
             className="flex flex-col sm:flex-row gap-3 justify-center mb-16"
           >
-            <a href="/chat" className="group relative px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-105 active:scale-95 transition-transform inline-flex items-center justify-center gap-2 shadow-elevated">
+            <a href="https://wa.me/2347039986047?text=Hi%2C%20I%20need%20a%20plumber%20in%20Lekki" target="_blank" rel="noopener noreferrer" className="group relative px-7 py-3.5 bg-primary text-primary-foreground rounded-full font-semibold hover:scale-105 active:scale-95 transition-transform inline-flex items-center justify-center gap-2 shadow-elevated">
               <MessageCircle size={18} />
               Start on WhatsApp
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -739,7 +741,7 @@ export default function Homepage() {
             <p className="text-white/80 text-lg mb-8 max-w-lg mx-auto">
               Join thousands of Nigerians who stopped stressing about everyday tasks.
             </p>
-            <a href="/chat" className="group inline-flex px-8 py-4 bg-white text-primary rounded-full font-bold text-lg hover:scale-105 active:scale-95 transition-transform items-center gap-2 shadow-float">
+            <a href="https://wa.me/2347039986047?text=Hi%2C%20I%20need%20a%20plumber%20in%20Lekki" target="_blank" rel="noopener noreferrer" className="group inline-flex px-8 py-4 bg-white text-primary rounded-full font-bold text-lg hover:scale-105 active:scale-95 transition-transform items-center gap-2 shadow-float">
               <MessageCircle size={20} />
               Start on WhatsApp
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
