@@ -310,8 +310,7 @@ export default function Homepage() {
           <nav className="hidden sm:flex items-center gap-6">
             <a href="#how" className="text-sm text-muted-foreground hover:text-foreground transition">How it works</a>
             <a href="#services" className="text-sm text-muted-foreground hover:text-foreground transition">Services</a>
-            <a href="/vendor/login" className="text-sm text-muted-foreground hover:text-foreground transition">For Vendors</a>
-            <a href="/admin/login" className="text-sm text-muted-foreground hover:text-foreground transition">Admin</a>
+            <a href="/vendor/login" className="text-sm text-muted-foreground hover:text-foreground transition">Vendors</a>
           </nav>
           <a href="/chat" className="relative px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-transform">
             <span className="relative z-10 flex items-center gap-1.5">
@@ -755,8 +754,7 @@ export default function Homepage() {
           <div className="flex flex-col items-center gap-6">
             <Logo />
             <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-6 text-sm text-muted-foreground">
-              <a href="/vendor/signup" className="hover:text-foreground transition">For Vendors</a>
-              <a href="/admin/login" className="hover:text-foreground transition">Admin Radio</a>
+              <a href="/vendor/signup" className="hover:text-foreground transition">Vendors</a>
               <a href="/chat" className="hover:text-foreground transition">Contact</a>
               <a href="/privacy-policy" className="hover:text-foreground transition">Privacy Policy</a>
               <a href="/terms-and-conditions" className="hover:text-foreground transition">Terms &amp; Conditions</a>
